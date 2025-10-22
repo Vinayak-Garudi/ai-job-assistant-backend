@@ -4,8 +4,11 @@
   "description": "A Node.js backend template with Express.js, MongoDB, Mongoose, and CLI generator",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "start": "NODE_ENV=production node src/server.js",
+    "dev": "NODE_ENV=local nodemon src/server.js",
+    "dev:development": "NODE_ENV=development nodemon src/server.js",
+    "start:development": "NODE_ENV=development node src/server.js",
+    "start:production": "NODE_ENV=production node src/server.js",
     "test": "jest",
     "generate": "node cli/generator.js",
     "lint": "eslint src/ --fix",
