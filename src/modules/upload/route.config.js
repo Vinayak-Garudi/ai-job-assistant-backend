@@ -1,7 +1,7 @@
-// Route configuration for the category module
+// Route configuration for the upload module
 module.exports = {
   // Custom route path - change this to customize your routes
-  path: '/api/categories', // Custom plural form (correct English plural)
+  path: '/api/uploads', // Smart plural form. Change to '/api/upload' for singular
   
   // Enable or disable this module
   enabled: true,
@@ -13,7 +13,7 @@ module.exports = {
   // ],
   
   // Optional: Route description for documentation
-  description: 'Category management endpoints',
+  description: 'Upload management endpoints',
   
   // Optional: API version
   version: 'v1',
@@ -29,7 +29,7 @@ module.exports = {
  * ROUTE CUSTOMIZATION EXAMPLES:
  * 
  * 1. Change route path:
- *    path: '/api/custom-category'
+ *    path: '/api/custom-upload'
  * 
  * 2. Disable module temporarily:
  *    enabled: false
@@ -38,7 +38,7 @@ module.exports = {
  *    middleware: [require('../../middleware/auth')]
  * 
  * 4. Version your API:
- *    path: '/api/v2/categorys'
+ *    path: '/api/v2/uploads'
  * 
  * 5. Custom rate limiting:
  *    rateLimit: { windowMs: 60000, max: 10 }

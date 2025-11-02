@@ -1,9 +1,11 @@
+const chalk = require('chalk');
+
 const errorHandler = (err, req, res, next) => {
   let error = { ...err };
   error.message = err.message;
 
   // Log error
-  console.error(err);
+  console.error(chalk.red(err));
 
   // Mongoose bad ObjectId
   if (err.name === 'CastError') {
@@ -19,7 +21,7 @@ const errorHandler = (err, req, res, next) => {
 
   // Mongoose validation error
   if (err.name === 'ValidationError') {
-    const message = Object.values(err.errors).map(val => val.message);
+    const message = Object.values(err.errors).map((val) => val.message);
     error = { message, statusCode: 400 };
   }
 

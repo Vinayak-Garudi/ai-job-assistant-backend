@@ -5,7 +5,7 @@ class AuthController {
   async register(req, res, next) {
     try {
       const result = await authService.register(req.body);
-      
+
       res.status(201).json({
         success: true,
         message: 'User registered successfully',

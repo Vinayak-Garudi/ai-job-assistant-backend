@@ -4,19 +4,26 @@ const { generateToken } = require('../../config/jwt');
 class AuthService {
   // Register a new user
   async register(userData) {
-    const { name, email, password } = userData;
+    const { username, email, password } = userData;
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    // Check if user already exists with username
+    const existingUserByUsername = await User.findOne({ username });
+    if (existingUserByUsername) {
+      throw new Error('User already exists with this username');
+    }
+
+    // Check if user already exists with email
+    const existingUserByEmail = await User.findOne({ email });
+    if (existingUserByEmail) {
       throw new Error('User already exists with this email');
     }
 
-    // Create user
+    // Create user with default role 'user'
     const user = await User.create({
-      name,
+      username,
       email,
       password,
+      role: 'user',
     });
 
     // Generate token
@@ -33,18 +40,13 @@ class AuthService {
     // Check if user exists and get password
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
-      throw new Error('Invalid credentials');
-    }
-
-    // Check if user is active
-    if (!user.isActive) {
-      throw new Error('Account is deactivated');
+      throw new Error('Invalid email or password');
     }
 
     // Check password
     const isValidPassword = await user.comparePassword(password);
     if (!isValidPassword) {
-      throw new Error('Invalid credentials');
+      throw new Error('Invalid email or password');
     }
 
     // Generate token
@@ -68,21 +70,58 @@ class AuthService {
 
   // Update user profile
   async updateProfile(userId, updateData) {
-    const allowedFields = ['name', 'email'];
+    const allowedFields = [
+      'username',
+      'age',
+      'location',
+      'email',
+      'profilePic',
+      'currentTitle',
+      'currentCompany',
+      'experienceYears',
+      'industry',
+      'skills',
+      'hobbiesAndInterests',
+      'softSkills',
+      'education',
+      'resume',
+      'jobPreferences',
+    ];
     const filteredData = {};
 
     // Filter allowed fields
-    Object.keys(updateData).forEach(key => {
+    Object.keys(updateData).forEach((key) => {
       if (allowedFields.includes(key)) {
         filteredData[key] = updateData[key];
       }
     });
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      filteredData,
-      { new: true, runValidators: true }
-    );
+    // Check if email is being updated and if it already exists
+    if (filteredData.email) {
+      const existingUser = await User.findOne({
+        email: filteredData.email,
+        _id: { $ne: userId },
+      });
+      if (existingUser) {
+        throw new Error('Email already in use by another user');
+      }
+    }
+
+    // Check if username is being updated and if it already exists
+    if (filteredData.username) {
+      const existingUser = await User.findOne({
+        username: filteredData.username,
+        _id: { $ne: userId },
+      });
+      if (existingUser) {
+        throw new Error('Username already in use by another user');
+      }
+    }
+
+    const user = await User.findByIdAndUpdate(userId, filteredData, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!user) {
       throw new Error('User not found');

@@ -1,5 +1,5 @@
 const serviceTemplate = (serviceName, name) => {
-  return `const ${serviceName} = require('./${name}.model');
+  return `const model = require('./${name}.model');
 
 class ${serviceName}Service {
   // Get all ${name}s with pagination
@@ -15,7 +15,7 @@ class ${serviceName}Service {
     const skip = (page - 1) * limit;
     
     // Build query
-    let query = ${serviceName}.find(filter);
+    let query = model.find(filter);
     
     if (populate) {
       query = query.populate(populate);
@@ -24,7 +24,7 @@ class ${serviceName}Service {
     // Execute query with pagination
     const [items, total] = await Promise.all([
       query.sort(sort).skip(skip).limit(parseInt(limit)),
-      ${serviceName}.countDocuments(filter),
+      model.countDocuments(filter),
     ]);
 
     return {
@@ -40,7 +40,7 @@ class ${serviceName}Service {
 
   // Get ${name} by ID
   async getById(id, populate = '') {
-    let query = ${serviceName}.findById(id);
+    let query = model.findById(id);
     
     if (populate) {
       query = query.populate(populate);
@@ -56,13 +56,13 @@ class ${serviceName}Service {
 
   // Create new ${name}
   async create(data) {
-    const item = await ${serviceName}.create(data);
+    const item = await model.create(data);
     return item;
   }
 
   // Update ${name}
   async update(id, data) {
-    const item = await ${serviceName}.findByIdAndUpdate(
+    const item = await model.findByIdAndUpdate(
       id,
       data,
       { new: true, runValidators: true }
@@ -77,7 +77,7 @@ class ${serviceName}Service {
 
   // Delete ${name}
   async delete(id) {
-    const item = await ${serviceName}.findByIdAndDelete(id);
+    const item = await model.findByIdAndDelete(id);
     
     if (!item) {
       throw new Error('${serviceName} not found');
@@ -88,7 +88,7 @@ class ${serviceName}Service {
 
   // Soft delete (deactivate)
   async deactivate(id) {
-    const item = await ${serviceName}.findByIdAndUpdate(
+    const item = await model.findByIdAndUpdate(
       id,
       { isActive: false },
       { new: true }
@@ -123,16 +123,16 @@ class ${serviceName}Service {
   // Get ${name} statistics
   async getStats() {
     const [total, active, inactive] = await Promise.all([
-      ${serviceName}.countDocuments(),
-      ${serviceName}.countDocuments({ isActive: true }),
-      ${serviceName}.countDocuments({ isActive: false }),
+      model.countDocuments(),
+      model.countDocuments({ isActive: true }),
+      model.countDocuments({ isActive: false }),
     ]);
 
     return {
       total,
       active,
       inactive,
-      recentlyCreated: await ${serviceName}
+      recentlyCreated: await model
         .countDocuments({
           createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
         }),
