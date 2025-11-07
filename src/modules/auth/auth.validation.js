@@ -41,52 +41,58 @@ const loginSchema = Joi.object({
 });
 
 const updateProfileSchema = Joi.object({
-  // Basic Details
-  username: Joi.string().min(2).max(50).messages({
-    'string.min': 'Username must be at least 2 characters long',
-    'string.max': 'Username cannot be more than 50 characters long',
-  }),
-  age: Joi.number().min(13).max(120).messages({
-    'number.min': 'Age must be at least 13',
-    'number.max': 'Age must be less than 120',
-  }),
-  location: Joi.string().max(100).messages({
-    'string.max': 'Location cannot be more than 100 characters',
-  }),
-  email: Joi.string().email().messages({
-    'string.email': 'Please provide a valid email',
-  }),
-  profilePic: Joi.string().uri().messages({
-    'string.uri': 'Please provide a valid URL for profile picture',
-  }),
-
-  // Professional Information
-  currentTitle: Joi.string().max(100).messages({
-    'string.max': 'Current title cannot be more than 100 characters',
-  }),
-  currentCompany: Joi.string().max(100).messages({
-    'string.max': 'Current company cannot be more than 100 characters',
-  }),
-  experienceYears: Joi.number().min(0).max(70).messages({
-    'number.min': 'Experience years cannot be negative',
-    'number.max': 'Experience years seems unrealistic',
-  }),
-  industry: Joi.string().max(100).messages({
-    'string.max': 'Industry cannot be more than 100 characters',
+  // Basic Info
+  basicInfo: Joi.object({
+    username: Joi.string().min(2).max(50).messages({
+      'string.min': 'Username must be at least 2 characters long',
+      'string.max': 'Username cannot be more than 50 characters long',
+    }),
+    age: Joi.number().min(13).max(120).messages({
+      'number.min': 'Age must be at least 13',
+      'number.max': 'Age must be less than 120',
+    }),
+    location: Joi.string().max(100).messages({
+      'string.max': 'Location cannot be more than 100 characters',
+    }),
+    email: Joi.string().email().messages({
+      'string.email': 'Please provide a valid email',
+    }),
+    profilePic: Joi.string().uri().messages({
+      'string.uri': 'Please provide a valid URL for profile picture',
+    }),
   }),
 
-  // Other Information
-  skills: Joi.array().items(Joi.string().max(50)).messages({
-    'array.base': 'Skills must be an array',
-  }),
-  hobbiesAndInterests: Joi.array().items(Joi.string().max(50)).messages({
-    'array.base': 'Hobbies and interests must be an array',
-  }),
-  softSkills: Joi.array().items(Joi.string().max(50)).messages({
-    'array.base': 'Soft skills must be an array',
+  // Professional Info
+  professionalInfo: Joi.object({
+    currentTitle: Joi.string().max(100).messages({
+      'string.max': 'Current title cannot be more than 100 characters',
+    }),
+    currentCompany: Joi.string().max(100).messages({
+      'string.max': 'Current company cannot be more than 100 characters',
+    }),
+    experienceYears: Joi.number().min(0).max(70).messages({
+      'number.min': 'Experience years cannot be negative',
+      'number.max': 'Experience years seems unrealistic',
+    }),
+    industry: Joi.string().max(100).messages({
+      'string.max': 'Industry cannot be more than 100 characters',
+    }),
   }),
 
-  // Education Information
+  // Other Info
+  otherInfo: Joi.object({
+    skills: Joi.array().items(Joi.string().max(50)).messages({
+      'array.base': 'Skills must be an array',
+    }),
+    hobbiesAndInterests: Joi.array().items(Joi.string().max(50)).messages({
+      'array.base': 'Hobbies and interests must be an array',
+    }),
+    softSkills: Joi.array().items(Joi.string().max(50)).messages({
+      'array.base': 'Soft skills must be an array',
+    }),
+  }),
+
+  // Education
   education: Joi.object({
     degree: Joi.string().max(100),
     graduationYear: Joi.number()
@@ -97,17 +103,25 @@ const updateProfileSchema = Joi.object({
   }),
 
   // Documents
-  resume: Joi.string().uri().messages({
-    'string.uri': 'Please provide a valid URL for resume',
+  documents: Joi.object({
+    resume: Joi.object({
+      url: Joi.string().uri().messages({
+        'string.uri': 'Please provide a valid URL for resume',
+      }),
+      fileName: Joi.string().max(255).messages({
+        'string.max': 'File name cannot be more than 255 characters',
+      }),
+      uploadedAt: Joi.date(),
+    }),
   }),
 
   // Job Preferences
   jobPreferences: Joi.object({
-    employmentType: Joi.array().items(
-      Joi.string().valid('full-time', 'part-time', 'internship', 'contract')
+    jobTypes: Joi.array().items(
+      Joi.string().valid('Full Time', 'Part Time', 'Internship', 'Contract')
     ),
-    workMode: Joi.array().items(
-      Joi.string().valid('on-site', 'remote', 'hybrid')
+    workModes: Joi.array().items(
+      Joi.string().valid('Remote', 'On-site', 'Hybrid')
     ),
     preferredLocations: Joi.array().items(Joi.string().max(100)),
     desiredRoles: Joi.array().items(Joi.string().max(100)),

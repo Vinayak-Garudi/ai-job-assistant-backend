@@ -3,84 +3,97 @@ const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema(
   {
-    // Basic Details
-    username: {
-      type: String,
-      required: [true, 'User name is required'],
-      unique: true,
-      trim: true,
-      maxlength: [50, 'User name cannot be more than 50 characters'],
-    },
-    email: {
-      type: String,
-      required: [true, 'Email is required'],
-      unique: true,
-      trim: true,
-      lowercase: true,
-      match: [
-        /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
-        'Please provide a valid email',
-      ],
-    },
+    // Password and Role (kept at root level for authentication)
     password: {
       type: String,
       required: [true, 'Password is required'],
       minlength: [6, 'Password must be at least 6 characters'],
       select: false, // Don't include password in queries by default
     },
-    age: {
-      type: Number,
-      min: [13, 'Age must be at least 13'],
-      max: [120, 'Age must be less than 120'],
-    },
-    location: {
+    role: {
       type: String,
-      trim: true,
-    },
-    profilePic: {
-      type: String,
-      trim: true,
+      enum: ['user', 'admin'],
+      default: 'user',
     },
 
-    // Professional Information
-    currentTitle: {
-      type: String,
-      trim: true,
-    },
-    currentCompany: {
-      type: String,
-      trim: true,
-    },
-    experienceYears: {
-      type: Number,
-      min: [0, 'Experience years cannot be negative'],
-    },
-    industry: {
-      type: String,
-      trim: true,
-    },
-
-    // Other Information
-    skills: [
-      {
+    // Basic Info
+    basicInfo: {
+      username: {
+        type: String,
+        required: [true, 'Username is required'],
+        unique: true,
+        trim: true,
+        maxlength: [50, 'Username cannot be more than 50 characters'],
+      },
+      age: {
+        type: Number,
+        min: [13, 'Age must be at least 13'],
+        max: [120, 'Age must be less than 120'],
+      },
+      location: {
         type: String,
         trim: true,
       },
-    ],
-    hobbiesAndInterests: [
-      {
+      email: {
+        type: String,
+        required: [true, 'Email is required'],
+        unique: true,
+        trim: true,
+        lowercase: true,
+        match: [
+          /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+          'Please provide a valid email',
+        ],
+      },
+      profilePic: {
         type: String,
         trim: true,
       },
-    ],
-    softSkills: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
+    },
 
-    // Education Information
+    // Professional Info
+    professionalInfo: {
+      currentTitle: {
+        type: String,
+        trim: true,
+      },
+      currentCompany: {
+        type: String,
+        trim: true,
+      },
+      experienceYears: {
+        type: Number,
+        min: [0, 'Experience years cannot be negative'],
+      },
+      industry: {
+        type: String,
+        trim: true,
+      },
+    },
+
+    // Other Info
+    otherInfo: {
+      skills: [
+        {
+          type: String,
+          trim: true,
+        },
+      ],
+      hobbiesAndInterests: [
+        {
+          type: String,
+          trim: true,
+        },
+      ],
+      softSkills: [
+        {
+          type: String,
+          trim: true,
+        },
+      ],
+    },
+
+    // Education
     education: {
       degree: {
         type: String,
@@ -107,23 +120,34 @@ const userSchema = new mongoose.Schema(
     },
 
     // Documents
-    resume: {
-      type: String,
-      trim: true,
+    documents: {
+      resume: {
+        url: {
+          type: String,
+          trim: true,
+        },
+        fileName: {
+          type: String,
+          trim: true,
+        },
+        uploadedAt: {
+          type: Date,
+        },
+      },
     },
 
     // Job Preferences
     jobPreferences: {
-      employmentType: [
+      jobTypes: [
         {
           type: String,
-          enum: ['full-time', 'part-time', 'internship', 'contract'],
+          enum: ['Full Time', 'Part Time', 'Internship', 'Contract'],
         },
       ],
-      workMode: [
+      workModes: [
         {
           type: String,
-          enum: ['on-site', 'remote', 'hybrid'],
+          enum: ['Remote', 'On-site', 'Hybrid'],
         },
       ],
       preferredLocations: [
@@ -138,13 +162,6 @@ const userSchema = new mongoose.Schema(
           trim: true,
         },
       ],
-    },
-
-    // Role
-    role: {
-      type: String,
-      enum: ['user', 'admin'],
-      default: 'user',
     },
   },
   {

@@ -7,21 +7,27 @@ class AuthService {
     const { username, email, password } = userData;
 
     // Check if user already exists with username
-    const existingUserByUsername = await User.findOne({ username });
+    const existingUserByUsername = await User.findOne({
+      'basicInfo.username': username,
+    });
     if (existingUserByUsername) {
       throw new Error('User already exists with this username');
     }
 
     // Check if user already exists with email
-    const existingUserByEmail = await User.findOne({ email });
+    const existingUserByEmail = await User.findOne({
+      'basicInfo.email': email,
+    });
     if (existingUserByEmail) {
       throw new Error('User already exists with this email');
     }
 
     // Create user with default role 'user'
     const user = await User.create({
-      username,
-      email,
+      basicInfo: {
+        username,
+        email,
+      },
       password,
       role: 'user',
     });
@@ -38,7 +44,9 @@ class AuthService {
   // Login user
   async login(email, password) {
     // Check if user exists and get password
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ 'basicInfo.email': email }).select(
+      '+password'
+    );
     if (!user) {
       throw new Error('Invalid email or password');
     }
@@ -71,20 +79,11 @@ class AuthService {
   // Update user profile
   async updateProfile(userId, updateData) {
     const allowedFields = [
-      'username',
-      'age',
-      'location',
-      'email',
-      'profilePic',
-      'currentTitle',
-      'currentCompany',
-      'experienceYears',
-      'industry',
-      'skills',
-      'hobbiesAndInterests',
-      'softSkills',
+      'basicInfo',
+      'professionalInfo',
+      'otherInfo',
       'education',
-      'resume',
+      'documents',
       'jobPreferences',
     ];
     const filteredData = {};
@@ -97,9 +96,9 @@ class AuthService {
     });
 
     // Check if email is being updated and if it already exists
-    if (filteredData.email) {
+    if (filteredData.basicInfo && filteredData.basicInfo.email) {
       const existingUser = await User.findOne({
-        email: filteredData.email,
+        'basicInfo.email': filteredData.basicInfo.email,
         _id: { $ne: userId },
       });
       if (existingUser) {
@@ -108,9 +107,9 @@ class AuthService {
     }
 
     // Check if username is being updated and if it already exists
-    if (filteredData.username) {
+    if (filteredData.basicInfo && filteredData.basicInfo.username) {
       const existingUser = await User.findOne({
-        username: filteredData.username,
+        'basicInfo.username': filteredData.basicInfo.username,
         _id: { $ne: userId },
       });
       if (existingUser) {
