@@ -3,11 +3,15 @@ loadEnvConfig();
 
 const app = require('./app');
 const connectDB = require('./config/database');
+const { startSessionCleanup } = require('./utils/sessionCleanup');
 
 const PORT = process.env.PORT || 5001;
 
 // Connect to MongoDB
 connectDB();
+
+// Start session cleanup scheduler (runs every hour)
+startSessionCleanup();
 
 // Start server
 const server = app.listen(PORT, () => {
