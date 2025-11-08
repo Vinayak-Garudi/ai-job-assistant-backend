@@ -51,30 +51,27 @@ const updateProfileSchema = Joi.object({
       'number.min': 'Age must be at least 13',
       'number.max': 'Age must be less than 120',
     }),
-    location: Joi.string().max(100).messages({
+    location: Joi.string().max(100).allow('').messages({
       'string.max': 'Location cannot be more than 100 characters',
     }),
     email: Joi.string().email().messages({
       'string.email': 'Please provide a valid email',
     }),
-    profilePic: Joi.string().uri().messages({
-      'string.uri': 'Please provide a valid URL for profile picture',
-    }),
   }),
 
   // Professional Info
   professionalInfo: Joi.object({
-    currentTitle: Joi.string().max(100).messages({
+    currentTitle: Joi.string().max(100).allow('').messages({
       'string.max': 'Current title cannot be more than 100 characters',
     }),
-    currentCompany: Joi.string().max(100).messages({
+    currentCompany: Joi.string().max(100).allow('').messages({
       'string.max': 'Current company cannot be more than 100 characters',
     }),
     experienceYears: Joi.number().min(0).max(70).messages({
       'number.min': 'Experience years cannot be negative',
       'number.max': 'Experience years seems unrealistic',
     }),
-    industry: Joi.string().max(100).messages({
+    industry: Joi.string().max(100).allow('').messages({
       'string.max': 'Industry cannot be more than 100 characters',
     }),
   }),
@@ -94,24 +91,24 @@ const updateProfileSchema = Joi.object({
 
   // Education
   education: Joi.object({
-    degree: Joi.string().max(100),
+    degree: Joi.string().max(100).allow(''),
     graduationYear: Joi.number()
       .min(1950)
       .max(new Date().getFullYear() + 10),
     certifications: Joi.array().items(Joi.string().max(100)),
-    university: Joi.string().max(200),
+    university: Joi.string().max(200).allow(''),
   }),
 
   // Documents
   documents: Joi.object({
     resume: Joi.object({
-      url: Joi.string().uri().messages({
+      url: Joi.string().uri().allow('', null).messages({
         'string.uri': 'Please provide a valid URL for resume',
       }),
-      fileName: Joi.string().max(255).messages({
+      fileName: Joi.string().max(255).allow('', null).messages({
         'string.max': 'File name cannot be more than 255 characters',
       }),
-      uploadedAt: Joi.date(),
+      uploadedAt: Joi.date().allow(null),
     }),
   }),
 

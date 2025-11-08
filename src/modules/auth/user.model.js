@@ -33,6 +33,7 @@ const userSchema = new mongoose.Schema(
       location: {
         type: String,
         trim: true,
+        default: '',
       },
       email: {
         type: String,
@@ -45,30 +46,33 @@ const userSchema = new mongoose.Schema(
           'Please provide a valid email',
         ],
       },
-      profilePic: {
-        type: String,
-        trim: true,
-      },
     },
 
     // Professional Info
     professionalInfo: {
-      currentTitle: {
-        type: String,
-        trim: true,
+      type: {
+        currentTitle: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        currentCompany: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        experienceYears: {
+          type: Number,
+          min: [0, 'Experience years cannot be negative'],
+          default: 0,
+        },
+        industry: {
+          type: String,
+          trim: true,
+          default: '',
+        },
       },
-      currentCompany: {
-        type: String,
-        trim: true,
-      },
-      experienceYears: {
-        type: Number,
-        min: [0, 'Experience years cannot be negative'],
-      },
-      industry: {
-        type: String,
-        trim: true,
-      },
+      default: {},
     },
 
     // Other Info
@@ -77,18 +81,21 @@ const userSchema = new mongoose.Schema(
         {
           type: String,
           trim: true,
+          default: '',
         },
       ],
       hobbiesAndInterests: [
         {
           type: String,
           trim: true,
+          default: '',
         },
       ],
       softSkills: [
         {
           type: String,
           trim: true,
+          default: '',
         },
       ],
     },
@@ -98,6 +105,7 @@ const userSchema = new mongoose.Schema(
       degree: {
         type: String,
         trim: true,
+        default: '',
       },
       graduationYear: {
         type: Number,
@@ -111,29 +119,40 @@ const userSchema = new mongoose.Schema(
         {
           type: String,
           trim: true,
+          default: null,
         },
       ],
       university: {
         type: String,
         trim: true,
+        default: '',
       },
     },
 
     // Documents
     documents: {
-      resume: {
-        url: {
-          type: String,
-          trim: true,
-        },
-        fileName: {
-          type: String,
-          trim: true,
-        },
-        uploadedAt: {
-          type: Date,
+      type: {
+        resume: {
+          type: {
+            url: {
+              type: String,
+              trim: true,
+              default: null,
+            },
+            fileName: {
+              type: String,
+              trim: true,
+              default: null,
+            },
+            uploadedAt: {
+              type: Date,
+              default: null,
+            },
+          },
+          default: null,
         },
       },
+      default: {},
     },
 
     // Job Preferences
