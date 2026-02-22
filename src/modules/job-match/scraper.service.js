@@ -266,8 +266,8 @@ class ScraperService {
   cleanJobDetails(jobDetails) {
     return {
       jobTitle: this.cleanText(jobDetails.jobTitle),
-      company: this.cleanText(jobDetails.company),
-      location: this.cleanText(jobDetails.location),
+      company: this.cleanText(jobDetails.company) || 'Not specified',
+      location: this.cleanText(jobDetails.location) || 'Not specified',
       jobDescription: this.cleanText(jobDetails.jobDescription, 10000),
     };
   }

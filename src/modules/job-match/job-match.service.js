@@ -20,7 +20,10 @@ class JobMatchService {
       }
 
       // Scrape job details from URL
-      const jobDetails = await scraperService.scrapeJobPosting(jobUrl);
+      // const jobDetails = await scraperService.scrapeJobPosting(jobUrl);
+      const jobDetails = {
+        jobUrl,
+      };
 
       // Add URL to job details
       jobDetails.jobUrl = jobUrl;
@@ -41,14 +44,28 @@ class JobMatchService {
 
       return jobMatch;
     } catch (error) {
-      // Check if it's an OpenAI quota/rate limit error
+      // Log the actual error for debugging
+      console.error('Job match analysis error:', error.message);
+
+      // Check if it's an OpenAI authentication error (401)
+      if (
+        error.message.includes('authentication failed') ||
+        error.message.includes('401')
+      ) {
+        throw new AppError(
+          'OpenAI API authentication failed. Please check your API key configuration.',
+          500
+        );
+      }
+
+      // Check if it's an OpenAI quota/rate limit error (429)
       if (
         error.message.includes('quota') ||
         error.message.includes('429') ||
         error.message.includes('rate limit')
       ) {
         throw new AppError(
-          'AI service is temporarily unavailable due to quota limits. Please try again later or contact support.',
+          'AI service is temporarily unavailable due to quota limits. Please check your OpenAI billing settings or try again later.',
           429
         );
       }
@@ -102,14 +119,28 @@ class JobMatchService {
 
       return jobMatch;
     } catch (error) {
-      // Check if it's an OpenAI quota/rate limit error
+      // Log the actual error for debugging
+      console.error('Job match analysis error (manual):', error.message);
+
+      // Check if it's an OpenAI authentication error (401)
+      if (
+        error.message.includes('authentication failed') ||
+        error.message.includes('401')
+      ) {
+        throw new AppError(
+          'OpenAI API authentication failed. Please check your API key configuration.',
+          500
+        );
+      }
+
+      // Check if it's an OpenAI quota/rate limit error (429)
       if (
         error.message.includes('quota') ||
         error.message.includes('429') ||
         error.message.includes('rate limit')
       ) {
         throw new AppError(
-          'AI service is temporarily unavailable due to quota limits. Please try again later or contact support.',
+          'AI service is temporarily unavailable due to quota limits. Please check your OpenAI billing settings or try again later.',
           429
         );
       }

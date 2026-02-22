@@ -11,14 +11,14 @@ const jobMatchSchema = new mongoose.Schema(
     // Job Details
     jobTitle: {
       type: String,
-      required: [true, 'Job title is required'],
+      required: false,
       trim: true,
       maxlength: [200, 'Job title cannot be more than 200 characters'],
     },
     company: {
       type: String,
-      required: [true, 'Company name is required'],
       trim: true,
+      default: 'Not specified',
       maxlength: [200, 'Company name cannot be more than 200 characters'],
     },
     location: {
@@ -28,7 +28,7 @@ const jobMatchSchema = new mongoose.Schema(
     },
     jobDescription: {
       type: String,
-      required: [true, 'Job description is required'],
+      required: false,
       trim: true,
     },
     jobUrl: {

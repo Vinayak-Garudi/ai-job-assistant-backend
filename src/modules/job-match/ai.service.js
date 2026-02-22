@@ -263,6 +263,7 @@ class AIService {
       parts.push(`\n**Job Description:**`);
       parts.push(jobDetails.jobDescription);
     }
+    if (jobDetails.jobUrl) parts.push(`\n**Job URL:** ${jobDetails.jobUrl}`);
 
     return parts.join('\n');
   }
