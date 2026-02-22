@@ -1,5 +1,8 @@
 const OpenAI = require('openai');
 const openaiConfig = require('../../config/openai');
+const { retryWithBackoff } = require('../../utils/retryWithBackoff');
+const aiCache = require('../../utils/aiCache');
+const apiMonitor = require('../../utils/apiMonitor');
 
 class AIService {
   constructor() {
@@ -15,7 +18,18 @@ class AIService {
    * @returns {Promise<Object>} - Analysis results with matching percentage, strengths, and areas to improve
    */
   async analyzeJobMatch(userProfile, jobDetails) {
+    // Check cache first
+    const cacheKey = aiCache.generateKey(userProfile, jobDetails);
+    const cachedResult = aiCache.get(cacheKey);
+
+    if (cachedResult) {
+      apiMonitor.recordCacheHit();
+      return cachedResult;
+    }
+
     try {
+      apiMonitor.recordCall();
+
       // Build the user profile summary
       const userProfileSummary = this.buildUserProfileSummary(userProfile);
 
@@ -28,36 +42,105 @@ class AIService {
         jobPostingSummary
       );
 
-      // Call OpenAI API
-      const completion = await this.openai.chat.completions.create({
-        model: openaiConfig.model,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are an expert career advisor and HR professional with deep knowledge of job matching and candidate assessment. Analyze the job-candidate fit objectively and provide actionable insights.',
+      // Call OpenAI API with retry logic
+      const completion = await retryWithBackoff(
+        async () => {
+          return await this.openai.chat.completions.create({
+            model: openaiConfig.model,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'You are an expert career advisor and HR professional with deep knowledge of job matching and candidate assessment. Analyze the job-candidate fit objectively and provide actionable insights.',
+              },
+              {
+                role: 'user',
+                content: prompt,
+              },
+            ],
+            temperature: openaiConfig.temperature,
+            max_tokens: openaiConfig.maxTokens,
+          });
+        },
+        {
+          maxRetries: 3,
+          baseDelay: 2000, // Start with 2 seconds
+          maxDelay: 30000, // Max 30 seconds between retries
+          shouldRetry: (error) => {
+            // Track retry attempts
+            apiMonitor.recordRetry();
+            // Use default retry logic
+            return (
+              error?.response?.status === 429 ||
+              error?.status === 429 ||
+              error?.code === 'ECONNRESET' ||
+              error?.code === 'ETIMEDOUT' ||
+              error?.message?.includes('429') ||
+              error?.message?.includes('quota') ||
+              error?.message?.includes('rate limit')
+            );
           },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: openaiConfig.temperature,
-        max_tokens: openaiConfig.maxTokens,
-      });
+        }
+      );
 
       const analysis = completion.choices[0].message.content;
 
       // Parse the AI response
       const parsedAnalysis = this.parseAIResponse(analysis);
 
+      // Cache the successful result
+      aiCache.set(cacheKey, parsedAnalysis);
+
+      apiMonitor.recordSuccess();
+
       return parsedAnalysis;
     } catch (error) {
+      apiMonitor.recordFailure(error);
+
+      // Enhanced error handling for different error types
       if (error instanceof OpenAI.APIError) {
+        // Handle rate limit errors (429)
+        if (error.status === 429 || error.code === 'rate_limit_exceeded') {
+          throw new Error(
+            `OpenAI API error: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.`
+          );
+        }
+
+        // Handle insufficient quota
+        if (error.code === 'insufficient_quota') {
+          throw new Error(
+            'OpenAI API quota exceeded. Please check your billing settings or try again later.'
+          );
+        }
+
+        // Handle authentication errors
+        if (error.status === 401) {
+          throw new Error(
+            'OpenAI API authentication failed. Please check your API key.'
+          );
+        }
+
+        // Handle invalid request errors
+        if (error.status === 400) {
+          throw new Error(
+            `OpenAI API error: Invalid request - ${error.message}`
+          );
+        }
+
+        // Generic OpenAI API error
         throw new Error(
-          `OpenAI API error: ${error.message || 'Failed to analyze job match'}`
+          `OpenAI API error: ${error.status} ${error.message || 'Failed to analyze job match'}`
         );
       }
+
+      // Handle network errors
+      if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+        throw new Error(
+          'Unable to connect to OpenAI API. Please check your internet connection.'
+        );
+      }
+
+      // Generic error
       throw new Error(`AI analysis failed: ${error.message}`);
     }
   }

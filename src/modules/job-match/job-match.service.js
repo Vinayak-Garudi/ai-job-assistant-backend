@@ -41,6 +41,18 @@ class JobMatchService {
 
       return jobMatch;
     } catch (error) {
+      // Check if it's an OpenAI quota/rate limit error
+      if (
+        error.message.includes('quota') ||
+        error.message.includes('429') ||
+        error.message.includes('rate limit')
+      ) {
+        throw new AppError(
+          'AI service is temporarily unavailable due to quota limits. Please try again later or contact support.',
+          429
+        );
+      }
+
       // Save error state if job details were obtained
       if (error.jobDetails) {
         await JobMatch.create({
@@ -90,6 +102,18 @@ class JobMatchService {
 
       return jobMatch;
     } catch (error) {
+      // Check if it's an OpenAI quota/rate limit error
+      if (
+        error.message.includes('quota') ||
+        error.message.includes('429') ||
+        error.message.includes('rate limit')
+      ) {
+        throw new AppError(
+          'AI service is temporarily unavailable due to quota limits. Please try again later or contact support.',
+          429
+        );
+      }
+
       // Save error state
       await JobMatch.create({
         userId,

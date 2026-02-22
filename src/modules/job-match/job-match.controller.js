@@ -1,6 +1,8 @@
 const jobMatchService = require('./job-match.service');
 const asyncHandler = require('../../utils/asyncHandler');
 const AppError = require('../../utils/AppError');
+const apiMonitor = require('../../utils/apiMonitor');
+const aiCache = require('../../utils/aiCache');
 
 class JobMatchController {
   /**
@@ -162,6 +164,44 @@ class JobMatchController {
       success: true,
       message: 'Job match re-analyzed successfully',
       data: result,
+    });
+  });
+
+  /**
+   * Get API health and monitoring statistics
+   * GET /api/job-match/monitor/health
+   */
+  getAPIHealth = asyncHandler(async (req, res) => {
+    const health = apiMonitor.getHealth();
+    const stats = apiMonitor.getStats();
+    const cacheStats = aiCache.getStats();
+
+    res.status(200).json({
+      success: true,
+      message: 'API health retrieved successfully',
+      data: {
+        health,
+        apiStats: stats,
+        cacheStats,
+      },
+    });
+  });
+
+  /**
+   * Get recent API errors
+   * GET /api/job-match/monitor/errors
+   */
+  getRecentErrors = asyncHandler(async (req, res) => {
+    const limit = parseInt(req.query.limit) || 10;
+    const errors = apiMonitor.getRecentErrors(limit);
+
+    res.status(200).json({
+      success: true,
+      message: 'Recent errors retrieved successfully',
+      data: {
+        count: errors.length,
+        errors,
+      },
     });
   });
 }
