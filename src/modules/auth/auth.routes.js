@@ -17,11 +17,7 @@ router.post('/login', authValidation.validateLogin, authController.login);
 router.use(auth); // Apply auth middleware to all routes below
 
 router.get('/profile', authController.getProfile);
-router.put(
-  '/profile',
-  authValidation.validateUpdateProfile,
-  authController.updateProfile
-);
+router.put('/profile', authController.updateProfile);
 router.put(
   '/change-password',
   authValidation.validateChangePassword,

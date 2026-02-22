@@ -8,52 +8,69 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Storage configuration for single image upload
+// Storage configuration for single resume upload
 const singleImageStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: (req, file) => req.body.folder || 'uploads',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-    transformation: [
-      { width: 1200, height: 1200, crop: 'limit' },
-      { quality: 'auto' },
-      { fetch_format: 'auto' },
-    ],
+    folder: (req, file) => req.body.folder || 'resumes',
+    resource_type: 'raw', // Use 'raw' for non-image files like PDFs and DOCX
+    public_id: (req, file) => {
+      // Generate a unique filename with extension
+      const timestamp = Date.now();
+      const fileExtension = file.originalname.split('.').pop().toLowerCase();
+      const originalName = file.originalname.split('.')[0].replace(/\s+/g, '_');
+      return `${originalName}_${timestamp}.${fileExtension}`;
+    },
   },
 });
 
-// Storage configuration for multiple images upload
+// Storage configuration for multiple resume uploads
 const multipleImagesStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: (req, file) => req.body.folder || 'uploads',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-    transformation: [
-      { width: 1200, height: 1200, crop: 'limit' },
-      { quality: 'auto' },
-      { fetch_format: 'auto' },
-    ],
+    folder: (req, file) => req.body.folder || 'resumes',
+    resource_type: 'raw', // Use 'raw' for non-image files like PDFs and DOCX
+    public_id: (req, file) => {
+      // Generate a unique filename with extension
+      const timestamp = Date.now();
+      const fileExtension = file.originalname.split('.').pop().toLowerCase();
+      const originalName = file.originalname.split('.')[0].replace(/\s+/g, '_');
+      return `${originalName}_${timestamp}.${fileExtension}`;
+    },
   },
 });
 
-// Delete image from Cloudinary
+// Delete document from Cloudinary
 const deleteImage = async (publicId) => {
   try {
-    const result = await cloudinary.uploader.destroy(publicId);
+    const result = await cloudinary.uploader.destroy(publicId, {
+      resource_type: 'raw', // Specify 'raw' for documents
+    });
     return result;
   } catch (error) {
-    throw new Error(`Failed to delete image: ${error.message}`);
+    throw new Error(`Failed to delete document: ${error.message}`);
   }
 };
 
-// Delete multiple images from Cloudinary
+// Delete multiple documents from Cloudinary
 const deleteMultipleImages = async (publicIds) => {
   try {
-    const result = await cloudinary.api.delete_resources(publicIds);
+    const result = await cloudinary.api.delete_resources(publicIds, {
+      resource_type: 'raw', // Specify 'raw' for documents
+    });
     return result;
   } catch (error) {
-    throw new Error(`Failed to delete images: ${error.message}`);
+    throw new Error(`Failed to delete documents: ${error.message}`);
   }
+};
+
+// Generate a proper URL for a raw file with correct content-type
+const generateSecureUrl = (publicId, options = {}) => {
+  return cloudinary.url(publicId, {
+    resource_type: 'raw',
+    secure: true,
+    ...options,
+  });
 };
 
 module.exports = {
@@ -62,4 +79,5 @@ module.exports = {
   multipleImagesStorage,
   deleteImage,
   deleteMultipleImages,
+  generateSecureUrl,
 };

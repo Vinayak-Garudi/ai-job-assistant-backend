@@ -15,20 +15,24 @@ router.use(auth);
 // Upload routes
 router.post(
   '/single',
-  uploadSingle.single('image'),
+  uploadSingle.single('file'),
   handleMulterError,
   uploadController.uploadSingle
 );
 
 router.post(
   '/multiple',
-  uploadMultiple.array('images', 10),
+  uploadMultiple.array('files', 10),
   handleMulterError,
   uploadController.uploadMultiple
 );
 
+// Get routes
+router.get('/', uploadController.getUserUploads);
+router.get('/:id', uploadController.getUploadById);
+
 // Delete routes
-router.delete('/single', uploadController.deleteImage);
-router.delete('/multiple', uploadController.deleteMultipleImages);
+router.delete('/single', uploadController.deleteResume);
+router.delete('/multiple', uploadController.deleteMultipleResumes);
 
 module.exports = router;

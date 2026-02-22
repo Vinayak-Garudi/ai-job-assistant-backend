@@ -1,18 +1,33 @@
 const multer = require('multer');
-const {
-  singleImageStorage,
-  multipleImagesStorage,
-} = require('../config/cloudinary');
+const { singleFileStorage, multipleFilesStorage } = require('../config/s3');
 const AppError = require('../utils/AppError');
 
-// File filter to validate image files
+// File filter to validate various file types
 const fileFilter = (req, file, cb) => {
   const allowedMimeTypes = [
+    // Documents
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // DOCX
+    'application/msword', // DOC (legacy)
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // XLSX
+    'application/vnd.ms-excel', // XLS
+    'text/plain', // TXT
+    'text/csv', // CSV
+
+    // Images
     'image/jpeg',
     'image/jpg',
     'image/png',
     'image/gif',
     'image/webp',
+    'image/svg+xml',
+
+    // Videos
+    'video/mp4',
+    'video/mpeg',
+    'video/quicktime', // MOV
+    'video/x-msvideo', // AVI
+    'video/webm',
   ];
 
   if (allowedMimeTypes.includes(file.mimetype)) {
@@ -20,7 +35,7 @@ const fileFilter = (req, file, cb) => {
   } else {
     cb(
       new AppError(
-        'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed',
+        'Invalid file type. Allowed types: PDF, DOCX, DOC, images (JPEG, PNG, GIF, WebP, SVG), videos (MP4, MOV, AVI, WebM), spreadsheets, and text files',
         400
       ),
       false
@@ -28,21 +43,21 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Multer configuration for single image upload
+// Multer configuration for single file upload
 const uploadSingle = multer({
-  storage: singleImageStorage,
+  storage: singleFileStorage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 50 * 1024 * 1024, // 50MB limit for files (increased for videos)
   },
 });
 
-// Multer configuration for multiple images upload
+// Multer configuration for multiple file uploads
 const uploadMultiple = multer({
-  storage: multipleImagesStorage,
+  storage: multipleFilesStorage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit per file
+    fileSize: 50 * 1024 * 1024, // 50MB limit per file
     files: 10, // Maximum 10 files
   },
 });
@@ -52,7 +67,7 @@ const handleMulterError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return next(
-        new AppError('File size too large. Maximum size is 5MB', 400)
+        new AppError('File size too large. Maximum size is 50MB', 400)
       );
     }
     if (err.code === 'LIMIT_FILE_COUNT') {
