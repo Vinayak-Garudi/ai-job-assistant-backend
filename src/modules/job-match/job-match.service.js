@@ -1,6 +1,5 @@
 const JobMatch = require('./job-match.model');
 const User = require('../auth/user.model');
-const scraperService = require('./scraper.service');
 const aiService = require('./ai.service');
 const AppError = require('../../utils/AppError');
 
@@ -32,7 +31,17 @@ class JobMatchService {
       const analysis = await aiService.analyzeJobMatch(user, jobDetails);
 
       // Save to database
-      const jobMatch = await JobMatch.create({
+      // const jobMatch = await JobMatch.create({
+      //   userId,
+      //   ...jobDetails,
+      //   analysis: {
+      //     ...analysis,
+      //     analyzedAt: new Date(),
+      //   },
+      //   status: 'analyzed',
+      // });
+
+      const jobMatch = {
         userId,
         ...jobDetails,
         analysis: {
@@ -40,7 +49,7 @@ class JobMatchService {
           analyzedAt: new Date(),
         },
         status: 'analyzed',
-      });
+      };
 
       return jobMatch;
     } catch (error) {
