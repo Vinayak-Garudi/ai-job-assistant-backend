@@ -1,6 +1,7 @@
 const JobMatch = require('./job-match.model');
 const User = require('../auth/user.model');
 const aiService = require('./ai.service');
+const scraperService = require('./scraper.service');
 const AppError = require('../../utils/AppError');
 
 class JobMatchService {
@@ -19,12 +20,18 @@ class JobMatchService {
       }
 
       // Scrape job details from URL
-      // const jobDetails = await scraperService.scrapeJobPosting(jobUrl);
-      const jobDetails = {
-        jobUrl,
-      };
+      let jobDetails;
+      try {
+        jobDetails = await scraperService.scrapeJobPosting(jobUrl);
+      } catch (scrapeError) {
+        console.error('Scraping failed:', scrapeError.message);
+        throw new AppError(
+          `Unable to extract job details from the provided URL. The page may require login or block automated access. Please paste the job description manually instead. (${scrapeError.message})`,
+          422
+        );
+      }
 
-      // Add URL to job details
+      // Attach the original URL to job details
       jobDetails.jobUrl = jobUrl;
 
       // Perform AI analysis

@@ -1,7 +1,8 @@
 const OpenAI = require('openai');
+const axios = require('axios');
+const pdfParse = require('pdf-parse');
 const openaiConfig = require('../../config/openai');
 const { retryWithBackoff } = require('../../utils/retryWithBackoff');
-const aiCache = require('../../utils/aiCache');
 const apiMonitor = require('../../utils/apiMonitor');
 
 class AIService {
@@ -18,20 +19,33 @@ class AIService {
    * @returns {Promise<Object>} - Analysis results with matching percentage, strengths, and areas to improve
    */
   async analyzeJobMatch(userProfile, jobDetails) {
-    // Check cache first
-    const cacheKey = aiCache.generateKey(userProfile, jobDetails);
-    const cachedResult = aiCache.get(cacheKey);
-
-    if (cachedResult) {
-      apiMonitor.recordCacheHit();
-      return cachedResult;
+    // Validate job URL if provided
+    if (jobDetails.jobUrl && !this.isValidJobURL(jobDetails.jobUrl)) {
+      return {
+        matchingPercentage: 0,
+        strengths: [],
+        areasToImprove: [],
+        detailedAnalysis: 'Invalid Job URL entered.',
+        invalidURL: true,
+      };
     }
 
     try {
       apiMonitor.recordCall();
 
+      // Fetch and parse resume if URL is available
+      let resumeText = null;
+      if (userProfile?.documents?.resume?.url) {
+        resumeText = await this.fetchResumeText(
+          userProfile.documents.resume.url
+        );
+      }
+
       // Build the user profile summary
-      const userProfileSummary = this.buildUserProfileSummary(userProfile);
+      const userProfileSummary = this.buildUserProfileSummary(
+        userProfile,
+        resumeText
+      );
 
       // Build the job posting summary
       const jobPostingSummary = this.buildJobPostingSummary(jobDetails);
@@ -58,8 +72,8 @@ class AIService {
                 content: prompt,
               },
             ],
-            temperature: openaiConfig.temperature,
-            max_tokens: openaiConfig.maxTokens,
+            // temperature: openaiConfig.temperature,
+            // max_tokens: openaiConfig.maxTokens,
           });
         },
         {
@@ -87,9 +101,6 @@ class AIService {
 
       // Parse the AI response
       const parsedAnalysis = this.parseAIResponse(analysis);
-
-      // Cache the successful result
-      aiCache.set(cacheKey, parsedAnalysis);
 
       apiMonitor.recordSuccess();
 
@@ -146,9 +157,48 @@ class AIService {
   }
 
   /**
+   * Fetch a resume from a URL and extract its text content.
+   * Supports PDF files; falls back to plain text for other formats.
+   * @param {string} url - URL of the resume file
+   * @returns {Promise<string|null>}
+   */
+  async fetchResumeText(url) {
+    try {
+      const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 15000,
+        headers: { Accept: '*/*' },
+      });
+
+      const buffer = Buffer.from(response.data);
+      const contentType = (
+        response.headers['content-type'] || ''
+      ).toLowerCase();
+      const isPdf =
+        contentType.includes('pdf') ||
+        url.toLowerCase().includes('.pdf') ||
+        buffer.slice(0, 4).toString() === '%PDF';
+
+      if (isPdf) {
+        const parsed = await pdfParse(buffer);
+        const text = parsed.text?.trim();
+        // Limit to ~6000 chars to stay within token budget
+        return text ? text.substring(0, 6000) : null;
+      }
+
+      // Plain text / other readable formats
+      const text = buffer.toString('utf-8').trim();
+      return text ? text.substring(0, 6000) : null;
+    } catch (error) {
+      console.warn('Failed to fetch/parse resume:', error.message);
+      return null;
+    }
+  }
+
+  /**
    * Build a comprehensive user profile summary
    */
-  buildUserProfileSummary(user) {
+  buildUserProfileSummary(user, resumeText = null) {
     const parts = [];
 
     // Basic Info
@@ -215,6 +265,13 @@ class AIService {
           `- Certifications: ${user.education.certifications.join(', ')}`
         );
       }
+    }
+
+    if (resumeText) {
+      parts.push(`\n**Resume Content:**`);
+      parts.push(resumeText);
+    } else if (user?.documents?.resume?.url) {
+      parts.push(`\n**Resume URL:** ${user.documents.resume.url}`);
     }
 
     // Job Preferences
@@ -387,6 +444,99 @@ Important:
       .filter((item) => item.length > 0);
 
     return items;
+  }
+
+  /**
+   * Validate whether a URL is a legitimate job posting URL.
+   * Returns false for non-job sites (e.g. youtube.com) and malformed URLs.
+   */
+  isValidJobURL(url) {
+    try {
+      const parsed = new URL(url);
+
+      // Only allow http/https URLs
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return false;
+      }
+
+      const hostname = parsed.hostname.toLowerCase().replace(/^www\./, '');
+
+      // Known job board / ATS domains
+      const knownJobSites = [
+        'linkedin.com',
+        'indeed.com',
+        'glassdoor.com',
+        'monster.com',
+        'ziprecruiter.com',
+        'dice.com',
+        'simplyhired.com',
+        'careerbuilder.com',
+        'lever.co',
+        'greenhouse.io',
+        'workday.com',
+        'icims.com',
+        'taleo.net',
+        'smartrecruiters.com',
+        'jobvite.com',
+        'workable.com',
+        'bamboohr.com',
+        'breezy.hr',
+        'recruitee.com',
+        'ashbyhq.com',
+        'angel.co',
+        'wellfound.com',
+        'remoteok.com',
+        'weworkremotely.com',
+        'naukri.com',
+        'shine.com',
+        'foundit.in',
+        'internshala.com',
+        'hackerearth.com',
+        'builtin.com',
+        'idealist.org',
+        'flexjobs.com',
+        'twitter.com', // job postings sometimes shared here
+      ];
+
+      if (
+        knownJobSites.some(
+          (site) => hostname === site || hostname.endsWith('.' + site)
+        )
+      ) {
+        return true;
+      }
+
+      // Check URL path for common job-related segments
+      const path = parsed.pathname.toLowerCase();
+      const jobPathPatterns = [
+        '/job/',
+        '/jobs/',
+        '/career/',
+        '/careers/',
+        '/position/',
+        '/positions/',
+        '/opening/',
+        '/openings/',
+        '/vacancy/',
+        '/vacancies/',
+        '/join-us/',
+        '/join/',
+        '/work-with-us/',
+        '/opportunities/',
+        '/apply/',
+        '/job-detail/',
+        '/jobdetail/',
+      ];
+
+      if (jobPathPatterns.some((pattern) => path.includes(pattern))) {
+        return true;
+      }
+
+      return false;
+    } catch {
+      // URL constructor threw — not a valid URL at all
+      return false;
+    }
   }
 
   /**

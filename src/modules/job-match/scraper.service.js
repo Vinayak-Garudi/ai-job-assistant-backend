@@ -79,29 +79,51 @@ class ScraperService {
 
         return {
           jobTitle: getTextMultiple([
-            'h1.job-title',
+            // LinkedIn
+            'h1.top-card-layout__title',
+            'h1.topcard__title',
+            'h1.job-details-jobs-unified-top-card__job-title',
+            // Indeed
             'h1.jobsearch-JobInfoHeader-title',
             '[data-testid="jobTitle"]',
+            // Generic
+            'h1.job-title',
             'h1[class*="title"]',
             'h1[class*="job"]',
             'h1',
           ]),
           company: getTextMultiple([
+            // LinkedIn
+            'a.topcard__org-name-link',
+            'a[data-tracking-control-name*="company"]',
+            // Indeed
             '[data-testid="company-name"]',
+            'a[data-tn-element="companyName"]',
+            // Generic
             '.company-name',
             '[class*="company"]',
-            'a[data-tn-element="companyName"]',
           ]),
           location: getTextMultiple([
+            // LinkedIn
+            '.topcard__flavor--bullet',
+            'span.job-details-jobs-unified-top-card__bullet',
+            // Indeed
             '[data-testid="job-location"]',
+            '[data-tn-element="jobLocation"]',
+            // Generic
             '.location',
             '[class*="location"]',
-            '[data-tn-element="jobLocation"]',
           ]),
           jobDescription: getTextMultiple([
+            // LinkedIn
+            '#job-details',
+            '.description__text',
+            '.jobs-description__content',
+            // Indeed
             '#jobDescriptionText',
-            '.job-description',
             '[data-testid="jobDescription"]',
+            // Generic
+            '.job-description',
             '[class*="description"]',
             'div[id*="description"]',
           ]),
@@ -139,7 +161,6 @@ class ScraperService {
         !jobDetails.jobDescription ||
         jobDetails.jobDescription.length < 50
       ) {
-        console.log('Cheerio scraping incomplete, trying Puppeteer...');
         jobDetails = await this.scrapeWithPuppeteer(url);
       }
 
@@ -164,9 +185,15 @@ class ScraperService {
    */
   extractJobTitle($, html) {
     const selectors = [
-      'h1.job-title',
+      // LinkedIn
+      'h1.top-card-layout__title',
+      'h1.topcard__title',
+      'h1.job-details-jobs-unified-top-card__job-title',
+      // Indeed
       'h1.jobsearch-JobInfoHeader-title',
       '[data-testid="jobTitle"]',
+      // Generic
+      'h1.job-title',
       'h1[class*="title"]',
       'h1[class*="job"]',
       '.job-title',
@@ -192,10 +219,16 @@ class ScraperService {
    */
   extractCompany($, html) {
     const selectors = [
+      // LinkedIn
+      'a.topcard__org-name-link',
+      '.top-card-layout__card a[data-tracking-control-name*="company"]',
+      'a[data-tracking-control-name*="company"]',
+      // Indeed
       '[data-testid="company-name"]',
+      'a[data-tn-element="companyName"]',
+      // Generic
       '.company-name',
       '[class*="company"]',
-      'a[data-tn-element="companyName"]',
       '[data-company]',
     ];
 
@@ -214,10 +247,16 @@ class ScraperService {
    */
   extractLocation($, html) {
     const selectors = [
+      // LinkedIn
+      '.topcard__flavor--bullet',
+      '.top-card-layout__first-subline .topcard__flavor--bullet',
+      'span.job-details-jobs-unified-top-card__bullet',
+      // Indeed
       '[data-testid="job-location"]',
+      '[data-tn-element="jobLocation"]',
+      // Generic
       '.location',
       '[class*="location"]',
-      '[data-tn-element="jobLocation"]',
     ];
 
     for (const selector of selectors) {
@@ -235,12 +274,19 @@ class ScraperService {
    */
   extractDescription($, html) {
     const selectors = [
+      // LinkedIn
+      '#job-details',
+      '.description__text',
+      '.jobs-description__content',
+      'div[class*="jobs-description"]',
+      // Indeed
       '#jobDescriptionText',
-      '.job-description',
       '[data-testid="jobDescription"]',
+      '[data-testid="job-description"]',
+      // Generic
+      '.job-description',
       '[class*="description"]',
       'div[id*="description"]',
-      '[data-testid="job-description"]',
     ];
 
     for (const selector of selectors) {
