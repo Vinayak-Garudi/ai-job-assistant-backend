@@ -182,17 +182,6 @@ class AuthService {
       }
     }
 
-    // Check if username is being updated and if it already exists
-    if (filteredData.basicInfo && filteredData.basicInfo.username) {
-      const existingUser = await User.findOne({
-        'basicInfo.username': filteredData.basicInfo.username,
-        _id: { $ne: userId },
-      });
-      if (existingUser) {
-        throw new Error('Username already in use by another user');
-      }
-    }
-
     const user = await User.findByIdAndUpdate(userId, filteredData, {
       new: true,
       runValidators: true,
