@@ -223,7 +223,7 @@ class AIService {
         );
       if (user.professionalInfo.experienceYears !== undefined)
         parts.push(
-          `- Years of Experience: ${user.professionalInfo.experienceYears}`
+          `- Experience: ${user.professionalInfo.experienceYears} years and ${user.professionalInfo.experienceMonths ?? 0} months`
         );
       if (user.professionalInfo.industry)
         parts.push(`- Industry: ${user.professionalInfo.industry}`);
@@ -352,6 +352,12 @@ AREAS_TO_IMPROVE:
 - [area 3]
 (list 3-5 areas where the candidate could improve to better fit this role)
 
+RESUME_FEEDBACK:
+- [feedback 1]
+- [feedback 2]
+- [feedback 3]
+(list 3-5 feedbacks where the candidate could improve their resume to better align with most job postings in their field)
+
 DETAILED_ANALYSIS:
 [Provide a comprehensive paragraph (150-250 words) explaining:
 1. Overall fit assessment
@@ -398,6 +404,14 @@ Important:
         ? this.extractListItems(areasMatch[1])
         : [];
 
+      // Extract resume feedback
+      const resumeFeedbackMatch = response.match(
+        /RESUME_FEEDBACK:(.*?)(?=DETAILED_ANALYSIS:|$)/is
+      );
+      const resumeFeedback = resumeFeedbackMatch
+        ? this.extractListItems(resumeFeedbackMatch[1])
+        : [];
+
       // Extract detailed analysis
       const detailedMatch = response.match(/DETAILED_ANALYSIS:(.*?)$/is);
       const detailedAnalysis = detailedMatch
@@ -408,6 +422,7 @@ Important:
         matchingPercentage: Math.min(100, Math.max(0, matchingPercentage)),
         strengths: strengths.slice(0, 5),
         areasToImprove: areasToImprove.slice(0, 5),
+        resumeFeedback: resumeFeedback.slice(0, 5),
         detailedAnalysis: detailedAnalysis.substring(0, 2000),
       };
     } catch (error) {

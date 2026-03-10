@@ -65,6 +65,12 @@ const userSchema = new mongoose.Schema(
           min: [0, 'Experience years cannot be negative'],
           default: 0,
         },
+        experienceMonths: {
+          type: Number,
+          min: [0, 'Experience months cannot be negative'],
+          max: [11, 'Experience months cannot be more than 11'],
+          default: 0,
+        },
         industry: {
           type: String,
           trim: true,
