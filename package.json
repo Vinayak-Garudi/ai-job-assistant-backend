@@ -47,6 +47,7 @@
     "multer": "^2.0.2",
     "multer-s3": "^3.0.1",
     "multer-storage-cloudinary": "^4.0.0",
+    "node-express-module-generator": "^1.0.2",
     "openai": "^6.8.1",
     "pdf-parse": "^1.1.1",
     "puppeteer": "^24.29.1",
