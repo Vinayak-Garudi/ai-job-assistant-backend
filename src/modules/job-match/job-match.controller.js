@@ -77,6 +77,7 @@ class JobMatchController {
       message: 'Job match history retrieved successfully',
       data: result.items,
       pagination: result.pagination,
+      stats: result.stats,
     });
   });
 

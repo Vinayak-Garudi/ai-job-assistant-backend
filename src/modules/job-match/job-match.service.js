@@ -184,14 +184,34 @@ class JobMatchService {
       filter.status = status;
     }
 
-    const [items, total] = await Promise.all([
-      JobMatch.find(filter)
-        .sort(sort)
-        .skip(skip)
-        .limit(parseInt(limit))
-        .select('-__v'),
-      JobMatch.countDocuments(filter),
-    ]);
+    const [items, total, highMatches, avgMatchResult, totalAnalyzed] =
+      await Promise.all([
+        JobMatch.find(filter)
+          .sort(sort)
+          .skip(skip)
+          .limit(parseInt(limit))
+          .select('-__v'),
+        JobMatch.countDocuments(filter),
+        JobMatch.countDocuments({
+          userId,
+          'analysis.matchingPercentage': { $gte: 80 },
+        }),
+        JobMatch.aggregate([
+          {
+            $match: {
+              userId: new (require('mongoose').Types.ObjectId)(userId),
+              status: 'analyzed',
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              avgPercentage: { $avg: '$analysis.matchingPercentage' },
+            },
+          },
+        ]),
+        JobMatch.countDocuments({ userId, status: 'analyzed' }),
+      ]);
 
     return {
       items,
@@ -200,6 +220,12 @@ class JobMatchService {
         limit: parseInt(limit),
         total,
         pages: Math.ceil(total / limit),
+      },
+      stats: {
+        totalJobs: total,
+        avgMatch: avgMatchResult[0]?.avgPercentage || 0,
+        highMatches,
+        totalAnalyzed,
       },
     };
   }
@@ -263,34 +289,35 @@ class JobMatchService {
    * @returns {Promise<Object>} - Statistics
    */
   async getUserStats(userId) {
-    const [total, analyzed, highMatches, avgMatch] = await Promise.all([
-      JobMatch.countDocuments({ userId }),
-      JobMatch.countDocuments({ userId, status: 'analyzed' }),
-      JobMatch.countDocuments({
-        userId,
-        'analysis.matchingPercentage': { $gte: 70 },
-      }),
-      JobMatch.aggregate([
-        {
-          $match: {
-            userId: require('mongoose').Types.ObjectId(userId),
-            status: 'analyzed',
+    const [totalJobs, analyzed, highMatches, avgMatchResult] =
+      await Promise.all([
+        JobMatch.countDocuments({ userId }),
+        JobMatch.countDocuments({ userId, status: 'analyzed' }),
+        JobMatch.countDocuments({
+          userId,
+          'analysis.matchingPercentage': { $gte: 80 },
+        }),
+        JobMatch.aggregate([
+          {
+            $match: {
+              userId: new (require('mongoose').Types.ObjectId)(userId),
+              status: 'analyzed',
+            },
           },
-        },
-        {
-          $group: {
-            _id: null,
-            avgPercentage: { $avg: '$analysis.matchingPercentage' },
+          {
+            $group: {
+              _id: null,
+              avgPercentage: { $avg: '$analysis.matchingPercentage' },
+            },
           },
-        },
-      ]),
-    ]);
+        ]),
+      ]);
 
     return {
-      total,
+      totalJobs,
       analyzed,
       highMatches,
-      averageMatchPercentage: avgMatch[0]?.avgPercentage || 0,
+      avgMatch: avgMatchResult[0]?.avgPercentage || 0,
       recentAnalyses: await JobMatch.countDocuments({
         userId,
         createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
@@ -325,6 +352,7 @@ class JobMatchService {
       company: jobMatch.company,
       location: jobMatch.location,
       jobDescription: jobMatch.jobDescription,
+      jobUrl: jobMatch.jobUrl,
     });
 
     // Update job match
