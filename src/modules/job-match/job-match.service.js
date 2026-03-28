@@ -38,17 +38,7 @@ class JobMatchService {
       const analysis = await aiService.analyzeJobMatch(user, jobDetails);
 
       // Save to database
-      // const jobMatch = await JobMatch.create({
-      //   userId,
-      //   ...jobDetails,
-      //   analysis: {
-      //     ...analysis,
-      //     analyzedAt: new Date(),
-      //   },
-      //   status: 'analyzed',
-      // });
-
-      const jobMatch = {
+      const jobMatch = await JobMatch.create({
         userId,
         ...jobDetails,
         analysis: {
@@ -56,7 +46,7 @@ class JobMatchService {
           analyzedAt: new Date(),
         },
         status: 'analyzed',
-      };
+      });
 
       return jobMatch;
     } catch (error) {

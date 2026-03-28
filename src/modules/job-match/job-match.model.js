@@ -54,6 +54,12 @@ const jobMatchSchema = new mongoose.Schema(
           trim: true,
         },
       ],
+      resumeFeedback: [
+        {
+          type: String,
+          trim: true,
+        },
+      ],
       detailedAnalysis: {
         type: String,
         trim: true,
