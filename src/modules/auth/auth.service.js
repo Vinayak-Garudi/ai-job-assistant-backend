@@ -1,9 +1,172 @@
 const User = require('./user.model');
 const Session = require('./session.model');
 const { generateToken } = require('../../config/jwt');
-const env = require('../../config/env');
+const OpenAI = require('openai');
+const openaiConfig = require('../../config/openai');
+const { retryWithBackoff } = require('../../utils/retryWithBackoff');
+const axios = require('axios');
+const pdfParse = require('pdf-parse');
 
 class AuthService {
+  constructor() {
+    this.openai = new OpenAI({
+      apiKey: openaiConfig.apiKey,
+    });
+  }
+
+  // Fetch resume text from URL
+  async _fetchResumeText(url) {
+    try {
+      const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 15000,
+        headers: { Accept: '*/*' },
+      });
+
+      const buffer = Buffer.from(response.data);
+      const contentType = (
+        response.headers['content-type'] || ''
+      ).toLowerCase();
+      const isPdf =
+        contentType.includes('pdf') ||
+        url.toLowerCase().includes('.pdf') ||
+        buffer.slice(0, 4).toString() === '%PDF';
+
+      if (isPdf) {
+        const parsed = await pdfParse(buffer);
+        const text = parsed.text?.trim();
+        return text ? text.substring(0, 6000) : null;
+      }
+
+      const text = buffer.toString('utf-8').trim();
+      return text ? text.substring(0, 6000) : null;
+    } catch (error) {
+      console.warn('Failed to fetch/parse resume:', error.message);
+      return null;
+    }
+  }
+
+  // Generate ideal LinkedIn profile in background using AI
+  _generateIdealLinkedInProfileInBackground(userId) {
+    (async () => {
+      try {
+        const user = await User.findById(userId);
+        if (!user) return;
+
+        // Fetch and parse resume if available
+        let resumeText = null;
+        if (user.documents?.resume?.url) {
+          resumeText = await this._fetchResumeText(user.documents.resume.url);
+        }
+
+        const profileSummary = this._buildProfileSummaryForLinkedIn(
+          user,
+          resumeText
+        );
+        if (!profileSummary) return;
+
+        const completion = await retryWithBackoff(
+          async () => {
+            return await this.openai.chat.completions.create({
+              model: openaiConfig.model,
+              messages: [
+                {
+                  role: 'system',
+                  content:
+                    'You are an expert LinkedIn profile consultant. Based on the user profile provided, generate an ideal LinkedIn profile. Respond ONLY with valid JSON (no markdown, no code fences). The JSON must have this exact structure: {"intro": "string", "about": "string", "experience": [{"title": "string", "companyOrOrganization": "string", "description": "string"}], "projects": [{"title": "string", "description": "string"}], "additionalSections": []}. IMPORTANT RULES: 1) The resume content (if provided) is the PRIMARY source of truth — always prioritize it over other profile fields. 2) Only populate the "projects" array if projects are explicitly mentioned in the resume. If no projects are found in the resume, set "projects" to an empty array []. 3) Make the intro a compelling headline. 4) Make the about section professional and detailed (2-3 paragraphs with bullet points using •). 5) For experience, craft impactful bullet-point descriptions using • that highlight achievements and impact. 6) If no resume is provided, generate based on available profile data and set "projects" to an empty array [].',
+                },
+                {
+                  role: 'user',
+                  content: profileSummary,
+                },
+              ],
+            });
+          },
+          { maxRetries: 2, baseDelay: 2000, maxDelay: 15000 }
+        );
+
+        const content = completion.choices[0].message.content;
+        const idealProfile = JSON.parse(content);
+
+        await User.findByIdAndUpdate(userId, {
+          idealLinkedInProfile: idealProfile,
+        });
+      } catch (error) {
+        console.error(
+          `Failed to generate ideal LinkedIn profile for user ${userId}:`,
+          error.message
+        );
+      }
+    })();
+  }
+
+  // Build profile summary for LinkedIn AI prompt
+  _buildProfileSummaryForLinkedIn(user, resumeText = null) {
+    const parts = [];
+
+    // Resume gets highest priority
+    if (resumeText) {
+      parts.push('**Resume Content (PRIMARY SOURCE — prioritize this):**');
+      parts.push(resumeText);
+      parts.push('');
+      parts.push('**Additional Profile Data:**');
+    }
+
+    if (user.basicInfo) {
+      if (user.basicInfo.username)
+        parts.push(`Name: ${user.basicInfo.username}`);
+      if (user.basicInfo.location)
+        parts.push(`Location: ${user.basicInfo.location}`);
+    }
+
+    if (user.professionalInfo) {
+      if (user.professionalInfo.currentTitle)
+        parts.push(`Current Title: ${user.professionalInfo.currentTitle}`);
+      if (user.professionalInfo.currentCompany)
+        parts.push(`Current Company: ${user.professionalInfo.currentCompany}`);
+      if (user.professionalInfo.experienceYears !== undefined)
+        parts.push(
+          `Experience: ${user.professionalInfo.experienceYears} years and ${user.professionalInfo.experienceMonths ?? 0} months`
+        );
+      if (user.professionalInfo.industry)
+        parts.push(`Industry: ${user.professionalInfo.industry}`);
+    }
+
+    if (user.otherInfo) {
+      if (user.otherInfo.skills?.length)
+        parts.push(`Skills: ${user.otherInfo.skills.join(', ')}`);
+      if (user.otherInfo.softSkills?.length)
+        parts.push(`Soft Skills: ${user.otherInfo.softSkills.join(', ')}`);
+      if (user.otherInfo.hobbiesAndInterests?.length)
+        parts.push(
+          `Hobbies & Interests: ${user.otherInfo.hobbiesAndInterests.join(', ')}`
+        );
+    }
+
+    if (user.education) {
+      if (user.education.degree) parts.push(`Degree: ${user.education.degree}`);
+      if (user.education.university)
+        parts.push(`University: ${user.education.university}`);
+      if (user.education.graduationYear)
+        parts.push(`Graduation Year: ${user.education.graduationYear}`);
+      if (user.education.certifications?.length)
+        parts.push(
+          `Certifications: ${user.education.certifications.join(', ')}`
+        );
+    }
+
+    if (user.jobPreferences) {
+      if (user.jobPreferences.desiredRoles?.length)
+        parts.push(
+          `Desired Roles: ${user.jobPreferences.desiredRoles.join(', ')}`
+        );
+      if (user.jobPreferences.jobTypes?.length)
+        parts.push(`Job Types: ${user.jobPreferences.jobTypes.join(', ')}`);
+    }
+
+    return parts.length > 0 ? parts.join('\n') : null;
+  }
+
   // Register a new user
   async register(userData, ipAddress, userAgent) {
     const { username, email, password } = userData;
@@ -38,6 +201,9 @@ class AuthService {
       ipAddress,
       userAgent
     );
+
+    // Generate ideal LinkedIn profile in background (fire-and-forget)
+    this._generateIdealLinkedInProfileInBackground(user._id);
 
     return {
       user,
@@ -190,6 +356,9 @@ class AuthService {
     if (!user) {
       throw new Error('User not found');
     }
+
+    // Regenerate ideal LinkedIn profile in background (fire-and-forget)
+    this._generateIdealLinkedInProfileInBackground(userId);
 
     return user;
   }

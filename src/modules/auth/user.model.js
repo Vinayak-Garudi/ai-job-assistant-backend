@@ -160,6 +160,61 @@ const userSchema = new mongoose.Schema(
       default: {},
     },
 
+    // Ideal LinkedIn Profile
+    idealLinkedInProfile: {
+      type: {
+        intro: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        about: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        experience: [
+          {
+            title: {
+              type: String,
+              trim: true,
+              default: '',
+            },
+            companyOrOrganization: {
+              type: String,
+              trim: true,
+              default: '',
+            },
+            description: {
+              type: String,
+              trim: true,
+              default: '',
+            },
+          },
+        ],
+        projects: [
+          {
+            title: {
+              type: String,
+              trim: true,
+              default: '',
+            },
+            description: {
+              type: String,
+              trim: true,
+              default: '',
+            },
+          },
+        ],
+        additionalSections: [
+          {
+            type: mongoose.Schema.Types.Mixed,
+          },
+        ],
+      },
+      default: {},
+    },
+
     // Job Preferences
     jobPreferences: {
       jobTypes: [
