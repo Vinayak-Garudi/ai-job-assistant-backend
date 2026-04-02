@@ -82,6 +82,33 @@ class JobMatchController {
   });
 
   /**
+   * Search user's job match history
+   * GET /api/job-match/search
+   */
+  searchHistory = asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    const { company, jobTitle, location, page, limit, sort } = req.query;
+
+    const query = {};
+    if (company) query.company = company;
+    if (jobTitle) query.jobTitle = jobTitle;
+    if (location) query.location = location;
+
+    const result = await jobMatchService.searchHistory(userId, query, {
+      page,
+      limit,
+      sort,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Search results retrieved successfully',
+      data: result.items,
+      pagination: result.pagination,
+    });
+  });
+
+  /**
    * Get job match by ID
    * GET /api/job-match/:id
    */

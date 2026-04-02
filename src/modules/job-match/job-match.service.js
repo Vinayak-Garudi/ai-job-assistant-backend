@@ -231,6 +231,58 @@ class JobMatchService {
   }
 
   /**
+   * Search user's job match history by company, jobTitle, or location
+   * @param {string} userId - User ID
+   * @param {Object} query - Search parameters
+   * @param {Object} options - Pagination options
+   * @returns {Promise<Object>} - Matching job entries with pagination
+   */
+  async searchHistory(userId, query, options = {}) {
+    const { page = 1, limit = 10, sort = '-createdAt' } = options;
+    const skip = (page - 1) * limit;
+
+    const filter = { userId, status: 'analyzed' };
+    const orConditions = [];
+
+    if (query.company) {
+      orConditions.push({ company: { $regex: query.company, $options: 'i' } });
+    }
+    if (query.jobTitle) {
+      orConditions.push({
+        jobTitle: { $regex: query.jobTitle, $options: 'i' },
+      });
+    }
+    if (query.location) {
+      orConditions.push({
+        location: { $regex: query.location, $options: 'i' },
+      });
+    }
+
+    if (orConditions.length > 0) {
+      filter.$or = orConditions;
+    }
+
+    const [items, total] = await Promise.all([
+      JobMatch.find(filter)
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .select('-__v'),
+      JobMatch.countDocuments(filter),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
    * Get job match by ID
    * @param {string} id - Job match ID
    * @param {string} userId - User ID (for authorization)

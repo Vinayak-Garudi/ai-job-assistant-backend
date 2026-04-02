@@ -28,6 +28,13 @@ router.post(
 // Get user's job match history
 router.get('/history', jobMatchController.getUserHistory);
 
+// Search user's job match history by company, jobTitle, or location
+router.get(
+  '/search',
+  jobMatchValidation.validateSearch,
+  jobMatchController.searchHistory
+);
+
 // Get user's high-match jobs
 router.get('/high-matches', jobMatchController.getHighMatches);
 

@@ -41,6 +41,22 @@ const analyzeManualSchema = Joi.object({
   }),
 });
 
+// Search history validation schema (query params)
+const searchSchema = Joi.object({
+  company: Joi.string().max(200).allow('').messages({
+    'string.max': 'Company name cannot be more than 200 characters long',
+  }),
+  jobTitle: Joi.string().max(200).allow('').messages({
+    'string.max': 'Job title cannot be more than 200 characters long',
+  }),
+  location: Joi.string().max(200).allow('').messages({
+    'string.max': 'Location cannot be more than 200 characters long',
+  }),
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(10),
+  sort: Joi.string().default('-createdAt'),
+});
+
 // ID parameter validation
 const idSchema = Joi.object({
   id: Joi.string()
@@ -61,9 +77,24 @@ const querySchema = Joi.object({
   minPercentage: Joi.number().integer().min(0).max(100).default(70),
 });
 
+const validateQuery = (schema) => {
+  return (req, res, next) => {
+    const { error } = schema.validate(req.query);
+    if (error) {
+      const message = error.details[0].message;
+      return res.status(400).json({
+        success: false,
+        message,
+      });
+    }
+    next();
+  };
+};
+
 module.exports = {
   validateAnalyzeUrl: validate(analyzeUrlSchema),
   validateAnalyzeManual: validate(analyzeManualSchema),
   validateId: validate(idSchema),
-  validateQuery: validate(querySchema),
+  validateQueryParams: validate(querySchema),
+  validateSearch: validateQuery(searchSchema),
 };
