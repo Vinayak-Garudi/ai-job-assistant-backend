@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { encrypt, decrypt, isEncrypted } = require('../../utils/encryption');
 
 const userSchema = new mongoose.Schema(
   {
@@ -75,6 +76,15 @@ const userSchema = new mongoose.Schema(
           type: String,
           trim: true,
           default: '',
+        },
+        currentCTCPerAnum: {
+          type: String, // stored as AES-256-GCM encrypted string
+          default: null,
+        },
+        salaryCurrency: {
+          type: String,
+          enum: ['INR', 'USD'],
+          default: 'INR',
         },
       },
       default: {},
@@ -256,15 +266,36 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
+// Encrypt currentCTCPerAnum before saving
+userSchema.pre('save', function (next) {
+  const ctc = this.professionalInfo?.currentCTCPerAnum;
+  if (
+    this.isModified('professionalInfo.currentCTCPerAnum') &&
+    ctc != null &&
+    !isEncrypted(ctc)
+  ) {
+    this.professionalInfo.currentCTCPerAnum = encrypt(Number(ctc));
+  }
+  next();
+});
+
 // Compare password method
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Remove password from JSON output
+// Remove password from JSON output and decrypt sensitive fields
 userSchema.methods.toJSON = function () {
   const userObject = this.toObject();
   delete userObject.password;
+  const ctc = userObject.professionalInfo?.currentCTCPerAnum;
+  if (ctc != null && isEncrypted(ctc)) {
+    try {
+      userObject.professionalInfo.currentCTCPerAnum = decrypt(ctc);
+    } catch {
+      // leave as-is if decryption fails (e.g. legacy unencrypted data)
+    }
+  }
   return userObject;
 };
 

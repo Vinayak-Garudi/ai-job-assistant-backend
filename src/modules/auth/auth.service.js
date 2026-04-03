@@ -1,6 +1,7 @@
 const User = require('./user.model');
 const Session = require('./session.model');
 const { generateToken } = require('../../config/jwt');
+const { encrypt, decrypt, isEncrypted } = require('../../utils/encryption');
 const OpenAI = require('openai');
 const openaiConfig = require('../../config/openai');
 const { retryWithBackoff } = require('../../utils/retryWithBackoff');
@@ -179,6 +180,16 @@ class AuthService {
       throw new Error('User already exists with this email');
     }
 
+    // Encrypt CTC if provided
+    if (
+      userData.professionalInfo?.currentCTCPerAnum != null &&
+      !isEncrypted(userData.professionalInfo.currentCTCPerAnum)
+    ) {
+      userData.professionalInfo.currentCTCPerAnum = encrypt(
+        Number(userData.professionalInfo.currentCTCPerAnum)
+      );
+    }
+
     // Create user with default role 'user'
     const user = await User.create({
       basicInfo: {
@@ -299,7 +310,21 @@ class AuthService {
     if (!user) {
       throw new Error('User not found');
     }
-    return user;
+    // Decrypt CTC — toJSON() handles it; return plain object
+    const userObj = user.toJSON();
+    if (
+      userObj.professionalInfo?.currentCTCPerAnum != null &&
+      isEncrypted(String(userObj.professionalInfo.currentCTCPerAnum))
+    ) {
+      try {
+        userObj.professionalInfo.currentCTCPerAnum = decrypt(
+          String(userObj.professionalInfo.currentCTCPerAnum)
+        );
+      } catch {
+        // leave as-is if decryption fails
+      }
+    }
+    return userObj;
   }
 
   // Get user profile by userId (legacy support)
@@ -309,7 +334,22 @@ class AuthService {
       throw new Error('User not found');
     }
 
-    return user;
+    // Decrypt CTC for the caller (toJSON also handles this on serialization)
+    const userObj = user.toJSON();
+    if (
+      userObj.professionalInfo?.currentCTCPerAnum != null &&
+      isEncrypted(String(userObj.professionalInfo.currentCTCPerAnum))
+    ) {
+      try {
+        userObj.professionalInfo.currentCTCPerAnum = decrypt(
+          String(userObj.professionalInfo.currentCTCPerAnum)
+        );
+      } catch {
+        // leave as-is if decryption fails
+      }
+    }
+
+    return userObj;
   }
 
   // Update user profile by token
@@ -346,6 +386,16 @@ class AuthService {
       if (existingUser) {
         throw new Error('Email already in use by another user');
       }
+    }
+
+    // Encrypt CTC before update (findByIdAndUpdate bypasses pre-save hooks)
+    if (
+      filteredData.professionalInfo?.currentCTCPerAnum != null &&
+      !isEncrypted(filteredData.professionalInfo.currentCTCPerAnum)
+    ) {
+      filteredData.professionalInfo.currentCTCPerAnum = encrypt(
+        Number(filteredData.professionalInfo.currentCTCPerAnum)
+      );
     }
 
     const user = await User.findByIdAndUpdate(userId, filteredData, {
