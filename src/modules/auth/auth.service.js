@@ -101,6 +101,138 @@ class AuthService {
     })();
   }
 
+  // Generate salary estimate in background using AI
+  _generateSalaryEstimateInBackground(userId) {
+    (async () => {
+      try {
+        const user = await User.findById(userId);
+        if (!user) return;
+
+        const profileSummary = this._buildProfileSummaryForSalary(user);
+        if (!profileSummary) return;
+
+        const completion = await retryWithBackoff(
+          async () => {
+            return await this.openai.chat.completions.create({
+              model: openaiConfig.model,
+              messages: [
+                {
+                  role: 'system',
+                  content:
+                    'You are an expert compensation analyst with deep knowledge of current job market conditions and salary benchmarks across industries. Based on the user profile provided, estimate a realistic salary range they could command in the current market. Consider their skills, experience, title, industry, location, education, desired roles, and current compensation. Respond ONLY with valid JSON (no markdown, no code fences). The JSON must have this exact structure: {"minSalary": number, "maxSalary": number, "currency": "INR" or "USD", "rationale": "string (2-3 sentences explaining the estimate)", "marketInsights": "string (1-2 sentences about current market conditions relevant to this profile)"}. Use the same currency as their current CTC if provided, otherwise default to INR for India-based profiles and USD otherwise. Salary values must be annual figures as plain numbers (no commas or symbols).',
+                },
+                {
+                  role: 'user',
+                  content: profileSummary,
+                },
+              ],
+            });
+          },
+          { maxRetries: 2, baseDelay: 2000, maxDelay: 15000 }
+        );
+
+        const content = completion.choices[0].message.content;
+        const estimate = JSON.parse(content);
+
+        await User.findByIdAndUpdate(userId, {
+          salaryEstimate: {
+            minSalary: estimate.minSalary,
+            maxSalary: estimate.maxSalary,
+            currency: estimate.currency,
+            rationale: estimate.rationale,
+            marketInsights: estimate.marketInsights,
+            generatedAt: new Date(),
+          },
+        });
+      } catch (error) {
+        console.error(
+          `Failed to generate salary estimate for user ${userId}:`,
+          error.message
+        );
+      }
+    })();
+  }
+
+  // Build profile summary for salary estimation AI prompt
+  _buildProfileSummaryForSalary(user) {
+    const parts = [];
+
+    if (user.basicInfo) {
+      if (user.basicInfo.username)
+        parts.push(`Name: ${user.basicInfo.username}`);
+      if (user.basicInfo.location)
+        parts.push(`Location: ${user.basicInfo.location}`);
+    }
+
+    if (user.professionalInfo) {
+      if (user.professionalInfo.currentTitle)
+        parts.push(`Current Title: ${user.professionalInfo.currentTitle}`);
+      if (user.professionalInfo.currentCompany)
+        parts.push(`Current Company: ${user.professionalInfo.currentCompany}`);
+      const expYears = user.professionalInfo.experienceYears ?? 0;
+      const expMonths = user.professionalInfo.experienceMonths ?? 0;
+      parts.push(`Total Experience: ${expYears} years and ${expMonths} months`);
+      if (user.professionalInfo.industry)
+        parts.push(`Industry: ${user.professionalInfo.industry}`);
+
+      // Resolve current CTC — decrypt if encrypted
+      const rawCtc = user.professionalInfo.currentCTCPerAnum;
+      if (rawCtc != null) {
+        let ctcValue = rawCtc;
+        if (isEncrypted(String(rawCtc))) {
+          try {
+            ctcValue = decrypt(String(rawCtc));
+          } catch {
+            ctcValue = null;
+          }
+        }
+        if (ctcValue != null) {
+          const currency = user.professionalInfo.salaryCurrency || 'INR';
+          parts.push(`Current CTC: ${ctcValue} ${currency} per annum`);
+        }
+      }
+
+      if (user.professionalInfo.salaryCurrency)
+        parts.push(`Preferred Currency: ${user.professionalInfo.salaryCurrency}`);
+    }
+
+    if (user.otherInfo) {
+      if (user.otherInfo.skills?.length)
+        parts.push(`Technical Skills: ${user.otherInfo.skills.join(', ')}`);
+      if (user.otherInfo.softSkills?.length)
+        parts.push(`Soft Skills: ${user.otherInfo.softSkills.join(', ')}`);
+    }
+
+    if (user.education) {
+      if (user.education.degree) parts.push(`Degree: ${user.education.degree}`);
+      if (user.education.university)
+        parts.push(`University: ${user.education.university}`);
+      if (user.education.graduationYear)
+        parts.push(`Graduation Year: ${user.education.graduationYear}`);
+      if (user.education.certifications?.length)
+        parts.push(
+          `Certifications: ${user.education.certifications.join(', ')}`
+        );
+    }
+
+    if (user.jobPreferences) {
+      if (user.jobPreferences.desiredRoles?.length)
+        parts.push(
+          `Target Roles: ${user.jobPreferences.desiredRoles.join(', ')}`
+        );
+      if (user.jobPreferences.preferredLocations?.length)
+        parts.push(
+          `Preferred Locations: ${user.jobPreferences.preferredLocations.join(', ')}`
+        );
+      if (user.jobPreferences.workModes?.length)
+        parts.push(`Work Mode Preference: ${user.jobPreferences.workModes.join(', ')}`);
+      if (user.jobPreferences.jobTypes?.length)
+        parts.push(`Job Types: ${user.jobPreferences.jobTypes.join(', ')}`);
+    }
+
+    return parts.length > 0 ? parts.join('\n') : null;
+  }
+
   // Build profile summary for LinkedIn AI prompt
   _buildProfileSummaryForLinkedIn(user, resumeText = null) {
     const parts = [];
@@ -407,8 +539,9 @@ class AuthService {
       throw new Error('User not found');
     }
 
-    // Regenerate ideal LinkedIn profile in background (fire-and-forget)
+    // Regenerate ideal LinkedIn profile and salary estimate in background (fire-and-forget)
     this._generateIdealLinkedInProfileInBackground(userId);
+    this._generateSalaryEstimateInBackground(userId);
 
     return user;
   }

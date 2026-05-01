@@ -225,6 +225,39 @@ const userSchema = new mongoose.Schema(
       default: {},
     },
 
+    // Salary Estimate
+    salaryEstimate: {
+      type: {
+        minSalary: {
+          type: Number,
+          default: null,
+        },
+        maxSalary: {
+          type: Number,
+          default: null,
+        },
+        currency: {
+          type: String,
+          default: null,
+        },
+        rationale: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        marketInsights: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        generatedAt: {
+          type: Date,
+          default: null,
+        },
+      },
+      default: {},
+    },
+
     // Job Preferences
     jobPreferences: {
       jobTypes: [
