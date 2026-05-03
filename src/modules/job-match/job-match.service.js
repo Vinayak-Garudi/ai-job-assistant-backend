@@ -37,16 +37,20 @@ class JobMatchService {
       // Perform AI analysis
       const analysis = await aiService.analyzeJobMatch(user, jobDetails);
 
-      // Save to database
-      const jobMatch = await JobMatch.create({
-        userId,
-        ...jobDetails,
-        analysis: {
-          ...analysis,
-          analyzedAt: new Date(),
+      // Save to database (update if URL already exists for this user)
+      const jobMatch = await JobMatch.findOneAndUpdate(
+        { userId, jobUrl },
+        {
+          ...jobDetails,
+          analysis: {
+            ...analysis,
+            analyzedAt: new Date(),
+          },
+          status: 'analyzed',
+          $unset: { error: '' },
         },
-        status: 'analyzed',
-      });
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
 
       return jobMatch;
     } catch (error) {
