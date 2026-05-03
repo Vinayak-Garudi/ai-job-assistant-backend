@@ -179,6 +179,23 @@ class JobMatchController {
   });
 
   /**
+   * Generate or regenerate job-specific details
+   * GET /api/job-match/get-job-specific-details/:_id
+   */
+  getJobSpecificDetails = asyncHandler(async (req, res) => {
+    const { _id } = req.params;
+    const userId = req.user.id;
+
+    const result = await jobMatchService.getJobSpecificDetails(_id, userId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Job-specific details generated successfully',
+      data: result,
+    });
+  });
+
+  /**
    * Re-analyze an existing job match
    * POST /api/job-match/:id/reanalyze
    */

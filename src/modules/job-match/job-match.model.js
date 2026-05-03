@@ -68,6 +68,26 @@ const jobMatchSchema = new mongoose.Schema(
         type: Date,
         default: Date.now,
       },
+      jobSpecificMessage: {
+        type: String,
+        trim: true,
+      },
+      jobSpecificEmail: {
+        type: String,
+        trim: true,
+      },
+      jobSpecificInterviewQuestions: [
+        {
+          type: String,
+          trim: true,
+        },
+      ],
+      jobSpecificTips: [
+        {
+          type: String,
+          trim: true,
+        },
+      ],
     },
     // Metadata
     status: {

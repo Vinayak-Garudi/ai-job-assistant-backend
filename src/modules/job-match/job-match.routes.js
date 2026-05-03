@@ -45,6 +45,13 @@ router.get('/stats', jobMatchController.getStats);
 router.get('/monitor/health', jobMatchController.getAPIHealth);
 router.get('/monitor/errors', jobMatchController.getRecentErrors);
 
+// Generate or regenerate job-specific details (DM, email, interview questions, tips)
+router.get(
+  '/get-job-specific-details/:_id',
+  aiEndpointLimiter,
+  jobMatchController.getJobSpecificDetails
+);
+
 // Get specific job match by ID
 router.get('/:id', jobMatchController.getById);
 

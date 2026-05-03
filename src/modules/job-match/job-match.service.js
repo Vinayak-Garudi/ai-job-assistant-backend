@@ -378,6 +378,41 @@ class JobMatchService {
   }
 
   /**
+   * Generate or regenerate job-specific details for a job match
+   * @param {string} id - Job match ID
+   * @param {string} userId - User ID
+   * @returns {Promise<Object>} - Updated job match with job-specific details
+   */
+  async getJobSpecificDetails(id, userId) {
+    const jobMatch = await JobMatch.findById(id);
+
+    if (!jobMatch) {
+      throw new AppError('Job match not found', 404);
+    }
+
+    if (jobMatch.userId.toString() !== userId.toString()) {
+      throw new AppError('Unauthorized access to this job match', 403);
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    const details = await aiService.generateJobSpecificDetails(user, jobMatch);
+
+    jobMatch.analysis.jobSpecificMessage = details.jobSpecificMessage;
+    jobMatch.analysis.jobSpecificEmail = details.jobSpecificEmail;
+    jobMatch.analysis.jobSpecificInterviewQuestions =
+      details.jobSpecificInterviewQuestions;
+    jobMatch.analysis.jobSpecificTips = details.jobSpecificTips;
+
+    await jobMatch.save();
+
+    return jobMatch;
+  }
+
+  /**
    * Re-analyze an existing job match
    * @param {string} id - Job match ID
    * @param {string} userId - User ID

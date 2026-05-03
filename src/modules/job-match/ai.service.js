@@ -555,6 +555,129 @@ Important:
   }
 
   /**
+   * Generate job-specific details: personalized DM, email, interview questions, and tips
+   * @param {Object} userProfile - User's complete profile
+   * @param {Object} jobMatch - Existing job match document
+   * @returns {Promise<Object>} - { jobSpecificMessage, jobSpecificEmail, jobSpecificInterviewQuestions, jobSpecificTips }
+   */
+  async generateJobSpecificDetails(userProfile, jobMatch) {
+    const userProfileSummary = this.buildUserProfileSummary(userProfile);
+    const jobPostingSummary = this.buildJobPostingSummary({
+      jobTitle: jobMatch.jobTitle,
+      company: jobMatch.company,
+      location: jobMatch.location,
+      jobDescription: jobMatch.jobDescription,
+      jobUrl: jobMatch.jobUrl,
+    });
+
+    const prompt = `
+You are an expert career coach helping a job seeker craft personalized outreach and prepare for interviews.
+
+${userProfileSummary}
+
+${jobPostingSummary}
+
+Based on the candidate's profile and the job posting above, generate the following in the EXACT format specified:
+
+JOB_SPECIFIC_MESSAGE:
+[Write a concise, personalized direct message (DM) the candidate can send to the HR, recruiter, company founder, or hiring manager on LinkedIn or similar platform. It should be 3-5 sentences, reference specifics from both the candidate's background and the job, and include a clear call to action. Do NOT use placeholders like [Your Name] — use the actual candidate's name if available.]
+
+JOB_SPECIFIC_EMAIL:
+[Write a professional email the candidate can send to apply or reach out. Include a subject line on the first line starting with "Subject: ", followed by a blank line, then the email body. The email should be 150-250 words, personalized to the role and company, highlight 2-3 key qualifications, and end with a professional sign-off using the candidate's name if available.]
+
+JOB_SPECIFIC_INTERVIEW_QUESTIONS:
+- [interview question 1]
+- [interview question 2]
+- [interview question 3]
+- [interview question 4]
+- [interview question 5]
+- [interview question 6]
+- [interview question 7]
+- [interview question 8]
+(List 8-10 likely interview questions specific to this role and company. Mix behavioral, technical, and situational questions relevant to the job description.)
+
+JOB_SPECIFIC_TIPS:
+- [tip 1]
+- [tip 2]
+- [tip 3]
+- [tip 4]
+- [tip 5]
+(List 5-7 actionable, job-specific tips the candidate should follow to maximize their chances — e.g. research areas, skills to highlight, potential red flags to address, how to tailor their pitch.)
+
+Important:
+- Be specific to this exact role and company, not generic advice
+- Reference actual details from the job description and the candidate's background
+- Keep each list item to one or two sentences maximum
+`;
+
+    const completion = await retryWithBackoff(
+      async () => {
+        return await this.openai.chat.completions.create({
+          model: openaiConfig.model,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are an expert career coach specializing in personalized job application strategies, outreach messaging, and interview preparation.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+        });
+      },
+      {
+        maxRetries: 3,
+        baseDelay: 2000,
+        maxDelay: 30000,
+        shouldRetry: (error) => {
+          apiMonitor.recordRetry();
+          return (
+            error?.response?.status === 429 ||
+            error?.status === 429 ||
+            error?.code === 'ECONNRESET' ||
+            error?.code === 'ETIMEDOUT' ||
+            error?.message?.includes('429') ||
+            error?.message?.includes('quota') ||
+            error?.message?.includes('rate limit')
+          );
+        },
+      }
+    );
+
+    const raw = completion.choices[0].message.content;
+    return this.parseJobSpecificResponse(raw);
+  }
+
+  /**
+   * Parse the job-specific details AI response
+   */
+  parseJobSpecificResponse(response) {
+    const messageMatch = response.match(
+      /JOB_SPECIFIC_MESSAGE:(.*?)(?=JOB_SPECIFIC_EMAIL:|$)/is
+    );
+    const emailMatch = response.match(
+      /JOB_SPECIFIC_EMAIL:(.*?)(?=JOB_SPECIFIC_INTERVIEW_QUESTIONS:|$)/is
+    );
+    const questionsMatch = response.match(
+      /JOB_SPECIFIC_INTERVIEW_QUESTIONS:(.*?)(?=JOB_SPECIFIC_TIPS:|$)/is
+    );
+    const tipsMatch = response.match(/JOB_SPECIFIC_TIPS:(.*?)$/is);
+
+    return {
+      jobSpecificMessage: messageMatch ? messageMatch[1].trim() : '',
+      jobSpecificEmail: emailMatch ? emailMatch[1].trim() : '',
+      jobSpecificInterviewQuestions: questionsMatch
+        ? this.extractListItems(questionsMatch[1]).slice(0, 10)
+        : [],
+      jobSpecificTips: tipsMatch
+        ? this.extractListItems(tipsMatch[1]).slice(0, 7)
+        : [],
+    };
+  }
+
+  /**
    * Quick validation to check if OpenAI is configured
    */
   isConfigured() {
