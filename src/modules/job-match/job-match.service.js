@@ -413,6 +413,25 @@ class JobMatchService {
   }
 
   /**
+   * Get all job matches for user that have job-specific details
+   * @param {string} userId - User ID
+   * @returns {Promise<Array>} - Job matches with job-specific details
+   */
+  async getJobSpecificDetailsList(userId) {
+    return JobMatch.find({
+      userId,
+      $or: [
+        { 'analysis.jobSpecificMessage': { $exists: true, $ne: '' } },
+        { 'analysis.jobSpecificEmail': { $exists: true, $ne: '' } },
+        { 'analysis.jobSpecificInterviewQuestions.0': { $exists: true } },
+        { 'analysis.jobSpecificTips.0': { $exists: true } },
+      ],
+    })
+      .sort({ updatedAt: -1 })
+      .select('-__v');
+  }
+
+  /**
    * Re-analyze an existing job match
    * @param {string} id - Job match ID
    * @param {string} userId - User ID

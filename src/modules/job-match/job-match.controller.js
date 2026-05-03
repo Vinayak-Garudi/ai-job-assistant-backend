@@ -213,6 +213,22 @@ class JobMatchController {
   });
 
   /**
+   * Get all job matches that have job-specific details
+   * GET /api/job-match/job-specific-details-list
+   */
+  getJobSpecificDetailsList = asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+
+    const result = await jobMatchService.getJobSpecificDetailsList(userId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Job-specific details list retrieved successfully',
+      data: result,
+    });
+  });
+
+  /**
    * Get API health and monitoring statistics
    * GET /api/job-match/monitor/health
    */

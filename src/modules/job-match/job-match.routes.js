@@ -45,6 +45,12 @@ router.get('/stats', jobMatchController.getStats);
 router.get('/monitor/health', jobMatchController.getAPIHealth);
 router.get('/monitor/errors', jobMatchController.getRecentErrors);
 
+// Get all job matches that have job-specific details
+router.get(
+  '/job-specific-details-list',
+  jobMatchController.getJobSpecificDetailsList
+);
+
 // Generate or regenerate job-specific details (DM, email, interview questions, tips)
 router.get(
   '/get-job-specific-details/:_id',
