@@ -153,6 +153,62 @@ class AuthService {
     })();
   }
 
+  // Generate ATS-optimised ideal resume in background using AI
+  _generateIdealResumeInBackground(userId) {
+    (async () => {
+      try {
+        const user = await User.findById(userId);
+        if (!user) return;
+
+        let resumeText = null;
+        if (user.documents?.resume?.url) {
+          resumeText = await this._fetchResumeText(user.documents.resume.url);
+        }
+
+        const profileSummary = this._buildProfileSummaryForLinkedIn(
+          user,
+          resumeText
+        );
+        if (!profileSummary) return;
+
+        const completion = await retryWithBackoff(
+          async () => {
+            return await this.openai.chat.completions.create({
+              model: openaiConfig.model,
+              messages: [
+                {
+                  role: 'system',
+                  content:
+                    'You are an expert resume writer specialising in ATS-optimised resumes. Based on the user profile provided, generate an ideal resume that passes Applicant Tracking Systems. Respond ONLY with valid JSON (no markdown, no code fences). The JSON must have this exact structure: {"professionalSummary": "string (3-4 sentences, keyword-rich, tailored to target role)", "skills": {"technical": ["string"], "soft": ["string"], "tools": ["string"]}, "experience": [{"title": "string", "company": "string", "location": "string", "startDate": "string (MMM YYYY or Present)", "endDate": "string (MMM YYYY or Present)", "bullets": ["string"]}], "education": [{"degree": "string", "institution": "string", "location": "string", "graduationYear": "string", "details": "string"}], "projects": [{"title": "string", "technologies": ["string"], "description": "string", "bullets": ["string"]}], "freelanceProjects": [{"title": "string", "client": "string (use Confidential if unknown)", "technologies": ["string"], "description": "string", "bullets": ["string"]}], "certifications": ["string"]}. ATS RULES: 1) Resume content (if provided) is PRIMARY — always prioritise it over other profile fields. 2) Use strong action verbs and quantify achievements with metrics wherever possible (e.g. "Reduced latency by 40%"). 3) Embed relevant keywords naturally from the job domain. 4) Keep bullet points concise (one line each). 5) Use plain text only — no tables, columns, graphics, or special characters that confuse ATS parsers. 6) List experience and education in reverse chronological order. 7) Only populate "projects" if explicitly mentioned in the profile/resume; otherwise set to []. 8) Only populate "freelanceProjects" if freelance/consulting work is mentioned; otherwise set to []. 9) "certifications" should be plain strings like "AWS Certified Solutions Architect – Associate (2023)".',
+                },
+                {
+                  role: 'user',
+                  content: profileSummary,
+                },
+              ],
+            });
+          },
+          { maxRetries: 2, baseDelay: 2000, maxDelay: 15000 }
+        );
+
+        const content = completion.choices[0].message.content;
+        const resume = JSON.parse(content);
+
+        await User.findByIdAndUpdate(userId, {
+          idealResume: {
+            ...resume,
+            generatedAt: new Date(),
+          },
+        });
+      } catch (error) {
+        console.error(
+          `Failed to generate ideal resume for user ${userId}:`,
+          error.message
+        );
+      }
+    })();
+  }
+
   // Build profile summary for salary estimation AI prompt
   _buildProfileSummaryForSalary(user) {
     const parts = [];
@@ -539,9 +595,10 @@ class AuthService {
       throw new Error('User not found');
     }
 
-    // Regenerate ideal LinkedIn profile and salary estimate in background (fire-and-forget)
+    // Regenerate ideal LinkedIn profile, salary estimate, and resume in background (fire-and-forget)
     this._generateIdealLinkedInProfileInBackground(userId);
     this._generateSalaryEstimateInBackground(userId);
+    this._generateIdealResumeInBackground(userId);
 
     return user;
   }

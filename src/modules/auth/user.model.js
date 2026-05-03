@@ -258,6 +258,61 @@ const userSchema = new mongoose.Schema(
       default: {},
     },
 
+    // Ideal Resume (ATS-optimised)
+    idealResume: {
+      type: {
+        professionalSummary: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        skills: {
+          technical: [{ type: String, trim: true }],
+          soft: [{ type: String, trim: true }],
+          tools: [{ type: String, trim: true }],
+        },
+        experience: [
+          {
+            title: { type: String, trim: true, default: '' },
+            company: { type: String, trim: true, default: '' },
+            location: { type: String, trim: true, default: '' },
+            startDate: { type: String, trim: true, default: '' },
+            endDate: { type: String, trim: true, default: '' },
+            bullets: [{ type: String, trim: true }],
+          },
+        ],
+        education: [
+          {
+            degree: { type: String, trim: true, default: '' },
+            institution: { type: String, trim: true, default: '' },
+            location: { type: String, trim: true, default: '' },
+            graduationYear: { type: String, trim: true, default: '' },
+            details: { type: String, trim: true, default: '' },
+          },
+        ],
+        projects: [
+          {
+            title: { type: String, trim: true, default: '' },
+            technologies: [{ type: String, trim: true }],
+            description: { type: String, trim: true, default: '' },
+            bullets: [{ type: String, trim: true }],
+          },
+        ],
+        freelanceProjects: [
+          {
+            title: { type: String, trim: true, default: '' },
+            client: { type: String, trim: true, default: '' },
+            technologies: [{ type: String, trim: true }],
+            description: { type: String, trim: true, default: '' },
+            bullets: [{ type: String, trim: true }],
+          },
+        ],
+        certifications: [{ type: String, trim: true }],
+        generatedAt: { type: Date, default: null },
+      },
+      default: {},
+    },
+
     // Job Preferences
     jobPreferences: {
       jobTypes: [
