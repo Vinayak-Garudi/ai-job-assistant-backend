@@ -52,7 +52,9 @@ class JobSearchService {
       query: resolvedQuery,
       location: resolvedLocation,
       employmentTypes: resolvedJobTypes,
-      workModes: resolvedWorkModes,
+      remoteOnly:
+        resolvedWorkModes.length > 0 &&
+        resolvedWorkModes.every((m) => m === 'Remote'),
       datePosted,
       page,
       perPage: limit,
@@ -90,8 +92,10 @@ class JobSearchService {
     const currentTitle = user.professionalInfo?.currentTitle;
 
     if (roles.length > 0) {
-      const base = roles.join(' OR ');
-      return skills.length > 0 ? `(${base}) ${skills.slice(0, 2).join(' ')}` : base;
+      // Use first role as the anchor; Google Jobs responds better to natural-language queries
+      return skills.length > 0
+        ? `${roles[0]} ${skills.slice(0, 2).join(' ')}`
+        : roles[0];
     }
 
     if (currentTitle) {

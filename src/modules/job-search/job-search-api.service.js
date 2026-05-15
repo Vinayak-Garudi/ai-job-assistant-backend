@@ -1,59 +1,63 @@
 const axios = require('axios');
 const AppError = require('../../utils/AppError');
 
-const RAPIDAPI_HOST = 'linkedin-job-search-api.p.rapidapi.com';
+const JSEARCH_HOST = 'jsearch.p.rapidapi.com';
 
-// Maps our datePosted value to the correct endpoint path
-// No monthly endpoint exists — /active-jb-7d is the widest window
-const DATE_POSTED_ENDPOINT = {
-  all: '/active-jb-7d',
-  today: '/active-jb-24h',
-  '3days': '/active-jb-7d',
-  week: '/active-jb-7d',
-  month: '/active-jb-7d',
-  '1h': '/active-jb-1h',
-};
-
+// Maps our internal job type labels to JSearch employment_types values
 const EMPLOYMENT_TYPE_MAP = {
-  'Full Time': 'FULL_TIME',
-  'Part Time': 'PART_TIME',
+  'Full Time': 'FULLTIME',
+  'Part Time': 'PARTTIME',
   Contract: 'CONTRACTOR',
   Internship: 'INTERN',
 };
 
-const WORK_MODE_MAP = {
-  Remote: 'remote',
-  Hybrid: 'hybrid',
-  'On-site': 'on-site',
-  'On Site': 'on-site',
-};
+// Normalises whatever JSearch returns for job_employment_type to our display labels.
+// JSearch currently returns human-readable strings ("Full-time", "Contractor", …)
+// but the API docs list ENUM values, so we handle both to be safe.
+function normaliseEmploymentType(raw) {
+  if (!raw) return null;
+  const map = {
+    'full-time': 'Full Time',
+    fulltime: 'Full Time',
+    'part-time': 'Part Time',
+    parttime: 'Part Time',
+    contractor: 'Contract',
+    contract: 'Contract',
+    internship: 'Internship',
+    intern: 'Internship',
+  };
+  return map[raw.toLowerCase()] ?? raw;
+}
+
+// JSearch date_posted values match our internal values directly:
+// 'all' | 'today' | '3days' | 'week' | 'month'
 
 class JobSearchApiService {
   constructor() {
-    this.baseUrl = `https://${RAPIDAPI_HOST}`;
+    this.baseUrl = `https://${JSEARCH_HOST}`;
     this.apiKey = process.env.RAPIDAPI_KEY;
   }
 
   /**
-   * Search jobs via LinkedIn Job Search API (RapidAPI)
+   * Search jobs via JSearch API (RapidAPI) — backed by Google Jobs.
+   * Aggregates listings from LinkedIn, Indeed, ZipRecruiter, Glassdoor, and more.
+   *
    * @param {Object} params
-   * @param {string} params.query - job title / keywords
-   * @param {string} [params.location] - city, state, or country
+   * @param {string} params.query           - job title / keywords
+   * @param {string} [params.location]      - city, state, or country (embedded into query)
    * @param {string[]} [params.employmentTypes] - e.g. ['Full Time', 'Contract']
-   * @param {string[]} [params.workModes] - e.g. ['Remote', 'Hybrid']
-   * @param {boolean} [params.remoteOnly] - restrict to remote jobs
-   * @param {string} [params.datePosted] - 'all' | 'today' | '3days' | 'week' | 'month'
-   * @param {number} [params.page] - 1-based page number
-   * @param {number} [params.perPage] - results per page
-   * @returns {Promise<Object[]>} - normalized job listings
+   * @param {boolean} [params.remoteOnly]   - restrict to remote jobs
+   * @param {string} [params.datePosted]    - 'all' | 'today' | '3days' | 'week' | 'month'
+   * @param {number} [params.page]          - 1-based page number
+   * @param {number} [params.perPage]       - results per page (max 10 per JSearch page)
+   * @returns {Promise<Object[]>}           - normalized job listings
    */
   async searchJobs({
     query,
     location,
     employmentTypes = [],
-    workModes = [],
     remoteOnly = false,
-    datePosted = 'week',
+    datePosted = 'month',
     page = 1,
     perPage = 10,
   }) {
@@ -64,98 +68,90 @@ class JobSearchApiService {
       );
     }
 
-    const endpoint = DATE_POSTED_ENDPOINT[datePosted] || '/active-jb-7d';
-    const offset = (page - 1) * perPage;
+    // JSearch takes location as part of the query string
+    const searchQuery = location ? `${query} in ${location}` : query;
 
     const requestParams = {
-      limit: String(perPage),
-      offset: String(offset),
+      query: searchQuery,
+      page: String(page),
+      num_pages: '1',
+      date_posted: datePosted,
     };
 
-    if (query) {
-      requestParams.titleSearch = query;
-    }
-
-    if (location) {
-      requestParams.locationSearch = location;
+    if (remoteOnly) {
+      requestParams.remote_jobs_only = 'true';
     }
 
     const mappedTypes = employmentTypes
       .map((t) => EMPLOYMENT_TYPE_MAP[t])
       .filter(Boolean);
     if (mappedTypes.length > 0) {
-      requestParams.aiEmploymentTypeFilter = mappedTypes.join(',');
-    }
-
-    // Determine work arrangement filter
-    const effectiveWorkModes = remoteOnly ? ['Remote'] : workModes;
-    const mappedModes = effectiveWorkModes
-      .map((m) => WORK_MODE_MAP[m])
-      .filter(Boolean);
-    if (mappedModes.length > 0) {
-      requestParams.aiWorkArrangementFilter = mappedModes.join(',');
+      requestParams.employment_types = mappedTypes.join(',');
     }
 
     let response;
     try {
-      response = await axios.get(`${this.baseUrl}${endpoint}`, {
+      response = await axios.get(`${this.baseUrl}/search`, {
         params: requestParams,
         headers: {
-          'x-rapidapi-host': RAPIDAPI_HOST,
+          'x-rapidapi-host': JSEARCH_HOST,
           'x-rapidapi-key': this.apiKey,
         },
         timeout: 15000,
       });
     } catch (err) {
       const status = err.response?.status;
-      const apiMsg = err.response?.data?.message || '';
       if (status === 403) {
         throw new AppError(
-          'Job search API access denied. Verify your RapidAPI subscription for linkedin-job-search-api is active.',
+          'Job search API access denied. Verify your RapidAPI subscription for JSearch is active.',
           503
         );
       }
       if (status === 429) {
         throw new AppError(
-          apiMsg.includes('MONTHLY')
-            ? 'Monthly job search API quota exceeded. Please upgrade your RapidAPI plan.'
-            : 'Job search API rate limit exceeded. Please try again later.',
+          'Job search API rate limit exceeded. Please try again later.',
           429
         );
       }
       throw new AppError(`Job search API error: ${err.message}`, 502);
     }
 
-    const jobs = Array.isArray(response.data) ? response.data : [];
-    return jobs.map(this._normalizeJob.bind(this));
+    const jobs = Array.isArray(response.data?.data) ? response.data.data : [];
+    return jobs.slice(0, perPage).map(this._normalizeJob.bind(this));
   }
 
   _normalizeJob(raw) {
-    const workplaceType = (raw.workplace_type || raw.aiWorkArrangementFilter || '').toLowerCase();
-    const location =
-      (Array.isArray(raw.locations_derived) && raw.locations_derived[0]) ||
-      raw.location ||
-      'Not specified';
+    const locationParts = [raw.job_city, raw.job_state, raw.job_country].filter(Boolean);
+    const location = locationParts.length > 0 ? locationParts.join(', ') : 'Not specified';
+
+    const hasSalary = raw.job_min_salary != null || raw.job_max_salary != null;
 
     return {
-      jobId: raw.id || null,
-      jobTitle: raw.title || '',
-      company: raw.organization || raw.organization_name || '',
-      companyLogo: raw.company_logo_url || null,
-      companyWebsite: raw.company_website || raw.organization_url || null,
+      jobId: raw.job_id || null,
+      jobTitle: raw.job_title || '',
+      company: raw.employer_name || '',
+      companyLogo: raw.employer_logo || null,
+      companyWebsite: raw.employer_website || null,
       location,
-      isRemote: workplaceType === 'remote',
-      employmentType: raw.employment_type || raw.aiEmploymentTypeFilter || null,
-      jobUrl: raw.url || null,
-      jobDescription: raw.description_text || raw.description_html || raw.description || '',
+      isRemote: raw.job_is_remote || false,
+      employmentType: normaliseEmploymentType(raw.job_employment_type),
+      jobUrl: raw.job_apply_link || null,
+      jobDescription: raw.job_description || '',
       highlights: {
-        qualifications: [],
-        responsibilities: [],
-        benefits: [],
+        qualifications: raw.job_highlights?.Qualifications || [],
+        responsibilities: raw.job_highlights?.Responsibilities || [],
+        benefits: raw.job_highlights?.Benefits || [],
       },
-      salary: raw.ai_salary_value || raw.salary || null,
-      postedAt: raw.date_posted || raw.posted_date || null,
-      source: 'LinkedIn',
+      salary: hasSalary
+        ? {
+            min: raw.job_min_salary ?? null,
+            max: raw.job_max_salary ?? null,
+            currency: raw.job_salary_currency || 'USD',
+            period: raw.job_salary_period || null,
+          }
+        : null,
+      postedAt: raw.job_posted_at_datetime_utc || null,
+      source: raw.job_publisher || 'JSearch',
     };
   }
 }
