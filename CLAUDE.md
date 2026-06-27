@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Agent Workflow (REQUIRED)
+
+For **every task** given in this repository, you MUST invoke the following agents in order:
+
+1. **Developer** — implement the task using the `/ai-job-assistant-backend-developer` skill.
+2. **Tester** — validate the implementation using the `/ai-job-assistant-backend-tester` skill.
+3. **Reviewer** — if the task involves non-trivial logic, new endpoints, security-sensitive code, or changes to shared utilities, invoke the `/ai-job-assistant-backend-reviewer` skill before marking the task complete.
+
+These skills are defined in `.claude/commands/` and provide the full project context, checklist, and output format each agent must follow. Pass the original task description as the argument (`$ARGUMENTS`) to each skill.
+
 ## Commands
 
 ```bash
