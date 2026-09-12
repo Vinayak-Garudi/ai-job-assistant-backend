@@ -118,7 +118,9 @@ const deleteFile = async (fileKey) => {
     const result = await s3Client.send(command);
     return { success: true, result };
   } catch (error) {
-    throw new Error(`Failed to delete file: ${error.message}`);
+    throw new Error(`Failed to delete file: ${error.message}`, {
+      cause: error,
+    });
   }
 };
 
@@ -142,7 +144,9 @@ const deleteMultipleFiles = async (fileKeys) => {
       errors: result.Errors || [],
     };
   } catch (error) {
-    throw new Error(`Failed to delete files: ${error.message}`);
+    throw new Error(`Failed to delete files: ${error.message}`, {
+      cause: error,
+    });
   }
 };
 
@@ -171,7 +175,9 @@ const generatePresignedUrl = async (fileKey, expiresIn = 3600) => {
       error: error.message,
       stack: error.stack,
     });
-    throw new Error(`Failed to generate presigned URL: ${error.message}`);
+    throw new Error(`Failed to generate presigned URL: ${error.message}`, {
+      cause: error,
+    });
   }
 };
 
@@ -196,7 +202,9 @@ const getFileMetadata = async (fileKey) => {
       metadata: data.Metadata,
     };
   } catch (error) {
-    throw new Error(`Failed to get file metadata: ${error.message}`);
+    throw new Error(`Failed to get file metadata: ${error.message}`, {
+      cause: error,
+    });
   }
 };
 
