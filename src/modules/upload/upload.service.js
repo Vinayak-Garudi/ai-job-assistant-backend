@@ -4,6 +4,10 @@ const {
   generatePresignedUrl,
 } = require('../../config/s3');
 const AppError = require('../../utils/AppError');
+const {
+  isStorageError,
+  toSafeStorageError,
+} = require('../../utils/storageError');
 const Upload = require('./upload.model');
 
 class UploadService {
@@ -46,7 +50,12 @@ class UploadService {
         uploadedAt: upload.createdAt,
       };
     } catch (error) {
-      throw new AppError(`Failed to process upload: ${error.message}`, 500);
+      // Operational errors already carry a safe message — pass them through.
+      if (error instanceof AppError) throw error;
+      if (isStorageError(error))
+        throw toSafeStorageError(error, 'Resume upload');
+      console.error(`❌ Resume upload failed: ${error.message}`);
+      throw new AppError('Failed to process upload', 500);
     }
   }
 
@@ -98,7 +107,12 @@ class UploadService {
 
       return uploadsWithUrls;
     } catch (error) {
-      throw new AppError(`Failed to process uploads: ${error.message}`, 500);
+      // Operational errors already carry a safe message — pass them through.
+      if (error instanceof AppError) throw error;
+      if (isStorageError(error))
+        throw toSafeStorageError(error, 'Resume upload');
+      console.error(`❌ Resume upload failed: ${error.message}`);
+      throw new AppError('Failed to process uploads', 500);
     }
   }
 
@@ -131,7 +145,12 @@ class UploadService {
         },
       };
     } catch (error) {
-      throw new AppError(`Failed to delete file: ${error.message}`, 500);
+      // Operational errors already carry a safe message — pass them through.
+      if (error instanceof AppError) throw error;
+      if (isStorageError(error))
+        throw toSafeStorageError(error, 'File deletion');
+      console.error(`❌ File deletion failed: ${error.message}`);
+      throw new AppError('Failed to delete file', 500);
     }
   }
 
@@ -154,7 +173,12 @@ class UploadService {
         },
       };
     } catch (error) {
-      throw new AppError(`Failed to delete files: ${error.message}`, 500);
+      // Operational errors already carry a safe message — pass them through.
+      if (error instanceof AppError) throw error;
+      if (isStorageError(error))
+        throw toSafeStorageError(error, 'File deletion');
+      console.error(`❌ File deletion failed: ${error.message}`);
+      throw new AppError('Failed to delete files', 500);
     }
   }
 

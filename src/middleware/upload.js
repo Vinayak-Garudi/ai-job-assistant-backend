@@ -1,6 +1,7 @@
 const multer = require('multer');
 const { singleFileStorage, multipleFilesStorage } = require('../config/s3');
 const AppError = require('../utils/AppError');
+const { isStorageError, toSafeStorageError } = require('../utils/storageError');
 
 // File filter to validate various file types
 const fileFilter = (req, file, cb) => {
@@ -64,6 +65,11 @@ const uploadMultiple = multer({
 
 // Middleware to handle multer errors
 const handleMulterError = (err, req, res, next) => {
+  // S3 failures are server-side problems — never surface the raw AWS message.
+  if (isStorageError(err)) {
+    return next(toSafeStorageError(err, 'File upload to S3'));
+  }
+
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return next(
