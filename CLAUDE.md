@@ -46,6 +46,7 @@ Required env vars:
 | `OPENAI_MODEL` | Defaults to `gpt-4o-mini` |
 | `ENCRYPTION_KEY` | **64-char hex string** (32 bytes) — required for CTC encryption |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_BUCKET_NAME` | S3 file storage |
+| `FIRECRAWL_API_KEY` | Firecrawl key for job suggestions. Optional at boot (a warning is logged); `/api/job-suggestions` returns 503 until set |
 
 ## Architecture
 
@@ -110,6 +111,18 @@ These are implemented as `_generateXInBackground(userId)` private methods in `au
 `POST /api/job-match/analyze-manual` skips scraping and takes `jobTitle`/`jobDescription` directly.
 
 All OpenAI calls go through `retryWithBackoff` (exponential backoff with jitter) which retries on 429 / rate-limit errors.
+
+### Job Suggestions Pipeline
+
+`GET /api/job-suggestions` (auth) returns profile-based job openings; `POST /api/job-suggestions/refresh` forces a new search.
+
+1. Build up to 3 search queries from `jobPreferences.desiredRoles` / `professionalInfo.currentTitle` × `preferredLocations` / `basicInfo.location` / remote preference. No role or title → 422.
+2. Firecrawl `POST /v2/search` per query (`tbs: qdr:m`, 10 results) → keep only individual-listing URLs (`listing.utils.js → isListingUrl`, drops search/aggregate pages and social posts) → dedupe by normalised URL.
+3. Firecrawl `POST /v2/scrape` with a `json` format on at most 4 non-LinkedIn candidates (Firecrawl doesn't support LinkedIn) to verify each is a single open posting and extract details; closed/non-posting pages are dropped.
+4. One OpenAI call (JSON mode) scores and explains fit. The model refers to listings by index, so URLs always come from Firecrawl results. If OpenAI fails, unranked listings are returned (`rankedByAI: false`).
+5. Results are cached per user in the `JobSuggestionSet` collection for 12 h and invalidated when the search-relevant profile fields change. Refresh has a 5-minute per-user cooldown; concurrent requests for the same user share one in-flight generation. Per-request credit ceiling ≈ 3 × 2 (search) + 4 × 5 (JSON scrape) = 26 credits. Caps live in `src/config/firecrawl.js`.
+
+Rate limits for this module are keyed by user id (in `job-suggestions.routes.js`), not IP, because requests arrive via the Next.js server.
 
 ### File Upload
 

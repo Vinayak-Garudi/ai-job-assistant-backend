@@ -34,6 +34,12 @@ function loadEnvConfig() {
   } else {
     console.log(`✅ Loaded environment configuration from ${envFile}`);
   }
+
+  if (!process.env.FIRECRAWL_API_KEY) {
+    console.warn(
+      '⚠️  FIRECRAWL_API_KEY is not set — /api/job-suggestions will return 503 until it is configured'
+    );
+  }
 }
 
 module.exports = loadEnvConfig;
