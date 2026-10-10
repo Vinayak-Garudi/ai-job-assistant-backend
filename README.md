@@ -32,6 +32,7 @@ PORT=3000
 MONGODB_URI=mongodb://localhost:27017/node-template
 JWT_SECRET=your-super-secret-jwt-key
 JWT_EXPIRES_IN=7d
+FIRECRAWL_API_KEY=fc-...   # optional — enables /api/job-suggestions
 ```
 
 ### Start the Server
@@ -177,6 +178,7 @@ The following modules are automatically loaded based on your `src/modules/` dire
 | `MONGODB_URI`    | MongoDB connection string | mongodb://localhost:27017/node-template |
 | `JWT_SECRET`     | JWT signing secret        | (required)                              |
 | `JWT_EXPIRES_IN` | JWT expiration time       | 7d                                      |
+| `FIRECRAWL_API_KEY` | Firecrawl API key for job suggestions (get one at https://www.firecrawl.dev). Without it `/api/job-suggestions` returns 503 | (optional) |
 
 ## License
 
