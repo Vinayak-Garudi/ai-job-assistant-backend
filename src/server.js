@@ -3,12 +3,14 @@ loadEnvConfig();
 
 const app = require('./app');
 const connectDB = require('./config/database');
+const { connectPostgres } = require('./config/postgres');
 const { startSessionCleanup } = require('./utils/sessionCleanup');
 
 const PORT = process.env.PORT || 5001;
 
 // Connect to MongoDB
 connectDB();
+connectPostgres();
 
 // Start session cleanup scheduler (runs every hour)
 startSessionCleanup();
