@@ -39,6 +39,10 @@ const analyzeManualSchema = Joi.object({
     'string.min': 'Job description must be at least 50 characters long',
     'any.required': 'Job description is required',
   }),
+  // Optional source URL, sent when falling back to manual entry after a failed scrape
+  jobUrl: Joi.string().uri().allow('').messages({
+    'string.uri': 'Please provide a valid URL',
+  }),
 });
 
 // Search history validation schema (query params)

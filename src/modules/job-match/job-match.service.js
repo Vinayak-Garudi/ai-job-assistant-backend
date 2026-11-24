@@ -27,7 +27,8 @@ class JobMatchService {
         console.error('Scraping failed:', scrapeError.message);
         throw new AppError(
           `Unable to extract job details from the provided URL. The page may require login or block automated access. Please paste the job description manually instead. (${scrapeError.message})`,
-          422
+          422,
+          'JOB_SCRAPE_FAILED'
         );
       }
 
@@ -54,6 +55,12 @@ class JobMatchService {
 
       return jobMatch;
     } catch (error) {
+      // Coded errors (e.g. JOB_SCRAPE_FAILED) are already client-ready; don't let
+      // the scraper's message text be misread as an OpenAI auth/quota error below
+      if (error.errorCode) {
+        throw error;
+      }
+
       // Log the actual error for debugging
       console.error('Job match analysis error:', error.message);
 
@@ -116,16 +123,27 @@ class JobMatchService {
       // Perform AI analysis
       const analysis = await aiService.analyzeJobMatch(user, jobDetails);
 
-      // Save to database
-      const jobMatch = await JobMatch.create({
-        userId,
+      const matchData = {
         ...jobDetails,
         analysis: {
           ...analysis,
           analyzedAt: new Date(),
         },
         status: 'analyzed',
-      });
+      };
+
+      // When a source URL is supplied (manual fallback after a failed scrape),
+      // upsert by URL like analyzeFromUrl so the same posting isn't duplicated
+      if (jobDetails.jobUrl) {
+        return await JobMatch.findOneAndUpdate(
+          { userId, jobUrl: jobDetails.jobUrl },
+          { ...matchData, $unset: { error: '' } },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      }
+
+      // Save to database
+      const jobMatch = await JobMatch.create({ userId, ...matchData });
 
       return jobMatch;
     } catch (error) {

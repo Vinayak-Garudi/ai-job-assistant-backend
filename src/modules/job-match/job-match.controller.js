@@ -31,7 +31,7 @@ class JobMatchController {
    * POST /api/job-match/analyze-manual
    */
   analyzeFromManual = asyncHandler(async (req, res) => {
-    const { jobTitle, company, location, jobDescription } = req.body;
+    const { jobTitle, company, location, jobDescription, jobUrl } = req.body;
     const userId = req.user.id;
 
     if (!jobTitle || !jobDescription) {
@@ -43,6 +43,7 @@ class JobMatchController {
       company: company || 'Not specified',
       location: location || 'Not specified',
       jobDescription,
+      ...(jobUrl && { jobUrl }),
     };
 
     const result = await jobMatchService.analyzeFromManualEntry(
